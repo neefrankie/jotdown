@@ -1,0 +1,310 @@
+## Inline Syntax
+
+This is _italic_ or {_italic_}.
+
+This is *bold* or {*bold*}.
+
+This is subscript H~2~O.
+
+This is superscript 20^th^.
+
+This is {#highlithed#}. Brace is mandatory.
+
+This is {+insert+}. Brace is mandatory.
+
+This is {-delete-}. Brace is mandatory.
+
+### Smart punctuation
+
+Straing double quotes and single quotes are parsed as curly quotes.
+
+Use curly braces to mark q uote as an opener `{"` or a closer `"}`
+
+To ge a straight quote, use `\'` or `\"`.
+
+`...` -> ellipses
+
+`---` -> em-dash
+
+`--` -> en-dash
+
+### Inline math 
+
+Einstein derived $`e=mc^2`.
+
+### Verbatim
+
+This is `verbatim/code`
+
+### Links
+
+Inline link: [My link text](http://example.com)
+
+Reference link:
+
+[read this too][foo bar]
+
+[foo bar]: https://example.com
+
+Empty label:
+
+[My link text][]
+
+[My link text]: /url
+
+### Auto Links
+
+<https://example.com>
+
+<me@example.com>
+
+### Images
+
+![picture of a cat](cat.jpg)
+
+![picture of a cat][cat]
+
+![cat][]
+
+[cat]: feline.jpg
+
+
+
+
+
+### Footnote Reference
+
+Here is the reference.[^foo]
+
+### Line break
+
+Line breaks in inline content are treated as “soft” breaks; they may be
+rendered as spaces, or (in contexts where newlines are treated
+semantically like spaces, such as HTML) as newlines.
+
+To get a hard line break (of the sort represented by HTML’s `<br>`), use
+backslash + newline:
+
+This is a soft
+break and this is a hard\
+break.
+
+### Comment
+
+{% look like this
+and span multiple lines %}
+
+{#ident % later we'll add a class %}
+
+### Symbols
+
+My reaction is :+1: :smiley:.
+
+### Raw inline
+
+This is `<?php echo 'Hello world!' ?>`{=html}.
+
+There's also raw block.
+
+### Span
+
+This is [a span]{.some-class #some-id some-key="some val"}.
+
+### Inline Attributes
+
+An attribute on _emphasized text_{#foo
+.bar .baz key="my value"}
+
+avant{lang=fr}{.blue}
+
+avant{lang=fr .blue}
+
+## Block Syntax
+
+### Paragraph
+
+### Block quote
+
+> Some blockquoted
+> content in here.
+
+### Verbatim Block
+
+```
+$ tree
+.
+├── aa
+│   └── foo.txt
+├── bb
+│   └── bar.txt
+└── c.png
+```
+
+### Lists
+
+Itemized list:
+
+* lions
+* tigers
+* bears
+
+Another list:
+
+ * First item. This item has a rather long
+   line, indented after the line breaks to
+   look nice.
+
+ * Second item. This item has a rather long
+line too, but without the pretty indent.
+ 
+   Second paragraph of second item.
+
+    - sublist,
+    - still in
+    - second item.
+
+ * Third item.
+
+Numbered list:
+
+ 1. item one
+ 2. item two
+ 3. item three
+
+Definition list:
+
+: lions
+
+  Like a C-program, these also have a main.
+  
+: tigers
+
+  Siberian, Bengal, and Tony the.
+  
+: bears
+
+  These come in both Teddy and Yogi.
+
+### Code Blocks
+
+```mylang
+func say-hello(nm) {
+    print("hello ${nm}!");
+}
+```
+
+
+
+### Display Math
+
+$$`E = K + U`
+
+
+### Pipe Table
+
+| Name | Size | Color |
+| --- | --- | --- |
+| lime | small | green |
+| orange | medium | orange |
+| grapefruit | large | yellow or pink |
+
+You can alter the alignment of the cells using colons in the
+separator line, and also optionally add spaces to align the cells,
+e.g.:
+
+| Material | Quantity | Catch-phrase  |
+| -------- | -------: | :-----------: |
+| cotton   |       42 |   Practical!  |
+| wool     |       17 |     Warm!     |
+| silk     |        4 |    Smooth!    |
+
+### Thematic break
+
+* * * *
+
+### Raw Block
+
+A code block with `=FORMAT`.
+
+```{=html}
+<video width="320" height="240" controls>
+  <source src="movie.mp4" type="video/mp4">
+  <source src="movie.ogg" type="video/ogg">
+  Your browser does not support the video tag.
+</video>
+```
+
+``` =html
+<video width="320" height="240" controls>
+    <source src="movie.mp4" type="video/mp4">
+    <source src="movie.ogg" type="video/ogg">
+    Your browser does not support the video tag.
+</video>
+```
+
+### Div
+
+{.some-class #some-other-id some-key="some val"}
+:::
+Div content
+goes here.
+:::
+
+Note the following shorthand:
+
+::: warning
+Watch out!
+:::
+
+is equivalent to
+
+{.warning}
+:::
+Watch out!
+:::
+
+### Reference Link Definition
+
+[google]: https://google.com
+
+[product page]: http://example.com?item=983459873087120394870128370
+    0981234098123048172304
+
+### Footnotes
+
+Here's the reference.[^foo]
+
+[^foo]: This is a note
+  with two paragraphs.
+
+  Second paragraph.
+
+  > a block quote in the note.
+
+### Block Attributes
+
+{.classy}
+This paragraph is wearing
+a top hat and cuff links.
+
+{source="personal-experience"}
+> More than three people on one
+> bicycle is *not* recommended.
+
+### Links to headings
+
+## Special Characters
+
+`...` turned to … (ellipsis)
+
+`--` turned to – (an en-dash)
+
+`---` turned to — (an em-dash)
+
+Straight quotes (`"foo"`, `bar's`) are converted to curved style (“foo”, bar’s).
+
+Backslash-escape a punctuation character to remove its special meaning.
+
+Backslash space = non-breaking space.
+
+Backslash at end of line = hard line break.
