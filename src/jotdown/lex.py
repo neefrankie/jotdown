@@ -39,10 +39,19 @@ class TokenKind:
     """基类，所有 Token 类型继承自它"""
     pass
 
+@dataclass
 class KindText(TokenKind): pass
+
+@dataclass
 class KindNewline(TokenKind): pass
+
+@dataclass
 class KindNbsp(TokenKind): pass
+
+@dataclass
 class KindHardbreak(TokenKind): pass
+
+@dataclass
 class KindEscape(TokenKind): pass
 
 # 带额外信息的类型
