@@ -145,7 +145,12 @@ class Lexer:
 
         # 当 Lexer 遇到一个反斜杠 \ 时，它会设置 self.escape = true，表示下一个字符需要被特殊对待。
         if self._escape:
-            return self._handle_escaped(start)
+            kind = self._handle_escaped()
+            return Token(
+                kind=kind,
+                text=self._src[start:self._pos],
+                span=Span(start, self._pos)
+            )
 
         # 跳过普通文本
         self._eat_while(lambda c: c not in self._SPECIAL_CHARS)
@@ -164,42 +169,21 @@ class Lexer:
             span=Span(start, self._pos)
         )
 
-    def _handle_escaped(self, start: int) -> Token:
+    def _handle_escaped(self) -> TokenKind:
         self._escape = False
         ch = self._eat_char()
-        if ch is None:
-            return Token(
-                kind=KindText(),
-                text=self._src[start:self._pos],
-                span=Span(start, self._pos),
-            )
-        if ch  == '\n':
-            return Token(
-                kind=KindHardbreak(),
-                text=self._src[start:self._pos],
-                span=Span(start, self._pos),
-            )
-        elif ch in ('\t', ' '):
-            if self._is_line_only_whitespace():
-                while self._eat_char() != '\n':
-                    pass
-                return Token(
-                    kind=KindHardbreak(),
-                    text=self._src[start:self._pos],
-                    span=Span(start, self._pos),
-                )
-            else:
-                return Token(
-                    kind=KindNbsp(),
-                    text=self._src[start:self._pos],
-                    span=Span(start, self._pos),
-                )
-        else:
-            return Token(
-                kind=KindText(),
-                text=self._src[start:self._pos],
-                span=Span(start, self._pos),
-            )
+        match ch:
+            case '\n':
+                return KindHardbreak()
+            case '\t' | ' ':
+                if self._is_line_only_whitespace():
+                    while self._eat_char() != '\n':
+                        pass
+                    return KindHardbreak()
+                else:
+                    return KindNbsp()
+            case _:
+                return KindText()
 
     def _is_line_only_whitespace(self) -> bool:
         for i in range(self._pos, len(self._src)):
@@ -342,6 +326,7 @@ class Lexer:
         if self._next:
             token = self._next
             self._next = None
+            return token
 
         token = self._next_token()
         if token is None:
