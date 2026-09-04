@@ -145,14 +145,17 @@ class Lexer:
 
         # 当 Lexer 遇到一个反斜杠 \ 时，它会设置 self.escape = true，表示下一个字符需要被特殊对待。
         if self._escape:
-            kind = self._handle_escaped()
+            self._escape = False
+            ch = self._eat_char()
+            if ch is None:
+                return None
+            kind = self._handle_escaped(ch)
             return Token(
                 kind=kind,
                 text=self._src[start:self._pos],
                 span=Span(start, self._pos)
             )
 
-        # 跳过普通文本
         self._eat_while(lambda c: c not in self._SPECIAL_CHARS)
         # If eat_while actually moved pos...
         if start < self._pos:
@@ -162,16 +165,17 @@ class Lexer:
                 span=Span(start, self._pos),
             )
 
-        kind = self._handle_special()
+        ch = self._eat_char()
+        if ch is None:
+            return None
+        kind = self._handle_special(ch)
         return Token(
             kind=kind,
             text=self._src[start:self._pos],
             span=Span(start, self._pos)
         )
 
-    def _handle_escaped(self) -> TokenKind:
-        self._escape = False
-        ch = self._eat_char()
+    def _handle_escaped(self, ch: str) -> TokenKind:
         match ch:
             case '\n':
                 return KindHardbreak()
@@ -194,9 +198,7 @@ class Lexer:
                 return False
         return True
 
-    def _handle_special(self) -> TokenKind:
-        ch = self._eat_char()
-
+    def _handle_special(self, ch: str) -> TokenKind:
         match ch:
             case '\n':
                 return KindNewline()
