@@ -123,15 +123,12 @@ class Lexer:
 
         return current
 
-    def _peek_char_n(self, n: int) -> Optional[str]:
+    def _peek_char(self, n: int = 0) -> Optional[str]:
         idx = self._pos + n
         if idx < len(self._src):
             return self._src[idx]
 
         return None
-
-    def _peek_char(self) -> Optional[str]:
-        return self._peek_char_n(0)
 
     def _eat_char(self) -> Optional[str]:
         if self._pos < len(self._src):
@@ -186,10 +183,11 @@ class Lexer:
 
     def _handle_escaped(self, ch: str) -> TokenKind:
         match ch:
-            case '\n':
+            case '\n': # \\n
                 return KindHardbreak()
             case '\t' | ' ':
-                if self._is_line_only_whitespace():
+                # \'\t' | ' '
+                if self._is_next_non_space_newline():
                     while self._eat_char() != '\n':
                         pass
                     return KindHardbreak()
@@ -198,14 +196,13 @@ class Lexer:
             case _:
                 return KindText()
 
-    def _is_line_only_whitespace(self) -> bool:
+    def _is_next_non_space_newline(self) -> bool:
+        """检查从当前位置到下一个非空格/制表符的字符是否是换行符"""
         for i in range(self._pos, len(self._src)):
             ch = self._src[i]
-            if ch == '\n':
-                return True
-            elif ch not in (' ', '\t'):
-                return False
-        return True
+            if ch not in (' ', '\t'):
+                return ch == '\n'
+        return False  # All space after _pos
 
     def _handle_special(self, ch: str) -> TokenKind:
         match ch:
@@ -214,7 +211,7 @@ class Lexer:
 
             case '\\':
                 next_ch = self._peek_char()
-                if next_ch and (next_ch.isascii() and (next_ch.isspace() or next_ch in string.punctuation)):
+                if next_ch is not None and (next_ch.isascii() and (next_ch.isspace() or next_ch in string.punctuation)):
                     self._escape = not self.verbatim
                     return KindEscape()
                 else:
@@ -288,7 +285,7 @@ class Lexer:
                     return KindClose(Delimiter.BRACE_HYPHEN)
                 else:
                     # --}
-                    while self._peek_char() == '-' and self._peek_char_n(1) != '}':
+                    while self._peek_char() == '-' and self._peek_char(1) != '}':
                         self._eat_char()
 
                     return KindSeq(Sequence.HYPHEN)
