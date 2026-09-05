@@ -115,11 +115,16 @@ class Lexer:
             return None
 
         # Concatenate continuous string.
+        # When such cases occur?
+        # \a will produce KindText for \, and KindText for a
+        # \*a will produce KindEscape for \, KindText for * and KindText for a.
         if isinstance(current.kind, KindText):
-            self._next = self._token()
-            while self._next and isinstance(self._next.kind, KindText):
-                current.span.end = self._next.span.end
+            while True:
                 self._next = self._token()
+                if self._next is None or not isinstance(self._next.kind, KindText):
+                    break
+                current.span.end = self._next.span.end
+                current.text += self._next.text
 
         return current
 
@@ -253,30 +258,54 @@ class Lexer:
                 return KindClose(Delimiter.BRACE)
     
             case '*':
-                return self._maybe_eat_close_brace(KindSym(Symbol.ASTERISK), Delimiter.BRACE_ASTERISK)
+                if self._eat_close_brace():
+                    return KindClose(Delimiter.BRACE_ASTERISK)
+                else:
+                    return KindSym(Symbol.ASTERISK)
     
             case '^':
-                return self._maybe_eat_close_brace(KindSym(Symbol.CARET), Delimiter.BRACE_CARET)
+                if self._eat_close_brace():
+                    return KindClose(Delimiter.BRACE_CARET)
+                else:
+                    return KindSym(Symbol.CARET)
     
             case '=':
                 # If it is =}, it is highlighted; otherwise plain text.
-                return self._maybe_eat_close_brace(KindText(), Delimiter.BRACE_EQUAL)
+                if self._eat_close_brace():
+                    return KindClose(Delimiter.BRACE_EQUAL)
+                else:
+                    return KindText()
     
             case '+':
                 # If it is +}, this is insert; otherwise plain text.
-                return self._maybe_eat_close_brace(KindText(), Delimiter.BRACE_PLUS)
+                if self._eat_close_brace():
+                    return KindClose(Delimiter.BRACE_PLUS)
+                else:
+                    return KindText()
 
             case '~':
-                return self._maybe_eat_close_brace(KindSym(Symbol.TILDE), Delimiter.BRACE_TILDE)
+                if self._eat_close_brace():
+                    return KindClose(Delimiter.BRACE_TILDE)
+                else:
+                    return KindSym(Symbol.TILDE)
 
             case '_':
-                return self._maybe_eat_close_brace(KindSym(Symbol.UNDERSCORE), Delimiter.BRACE_UNDERSCORE)
+                if self._eat_close_brace():
+                    return KindClose(Delimiter.BRACE_UNDERSCORE)
+                else:
+                    return KindSym(Symbol.UNDERSCORE)
 
             case '\'':
-                return self._maybe_eat_close_brace(KindSym(Symbol.QUOTE1), Delimiter.BRACE_QUOTE1)
+                if self._eat_close_brace():
+                    return KindClose(Delimiter.BRACE_QUOTE1)
+                else:
+                    return KindSym(Symbol.QUOTE1)
 
             case '"':
-                return self._maybe_eat_close_brace(KindSym(Symbol.QUOTE2), Delimiter.BRACE_QUOTE2)
+                if self._eat_close_brace():
+                    return KindClose(Delimiter.BRACE_QUOTE2)
+                else:
+                    return KindSym(Symbol.QUOTE2)
 
             case '-':
                 # -}
@@ -285,7 +314,7 @@ class Lexer:
                     return KindClose(Delimiter.BRACE_HYPHEN)
                 else:
                     # --}
-                    while self._peek_char() == '-' and self._peek_char(1) != '}':
+                    while self._peek_char() == '-' and self._peek_char(1) != '}': # stop at -} or not -
                         self._eat_char()
 
                     return KindSeq(Sequence.HYPHEN)
@@ -317,15 +346,15 @@ class Lexer:
                 return KindText()
 
     def _eat_seq(self, s: Sequence) -> TokenKind:
-        self._eat_while(lambda c: c == s.value)
+        self._eat_while(lambda c: c == s.value) # stops after ```
         return KindSeq(s)
 
-    def _maybe_eat_close_brace(self, kind: TokenKind, d: Delimiter) -> TokenKind:
+    def _eat_close_brace(self):
         if self._peek_char() == '}':
             self._eat_char()
-            return KindClose(d)
+            return True
 
-        return kind
+        return False
 
     def __iter__(self):
         return self
