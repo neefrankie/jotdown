@@ -264,7 +264,7 @@ class Lexer:
     
             case '+':
                 # If it is +}, this is insert; otherwise plain text.
-                return self._maybe_eat_close_brace(KindText(), Delimiter.BRACE_EQUAL)
+                return self._maybe_eat_close_brace(KindText(), Delimiter.BRACE_PLUS)
 
             case '~':
                 return self._maybe_eat_close_brace(KindSym(Symbol.TILDE), Delimiter.BRACE_TILDE)
@@ -321,7 +321,7 @@ class Lexer:
         return KindSeq(s)
 
     def _maybe_eat_close_brace(self, kind: TokenKind, d: Delimiter) -> TokenKind:
-        if self._peek_char == '}':
+        if self._peek_char() == '}':
             self._eat_char()
             return KindClose(d)
 
