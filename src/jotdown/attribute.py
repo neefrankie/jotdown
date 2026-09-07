@@ -253,7 +253,6 @@ class AttributeParser:
         """
         Parse %...% or %...}.
         """
-        self.pos += 1 # ignore the '%'
         content = self._read_comment()
         self.attrs.push(CommentAttribute(content))
 
@@ -288,7 +287,7 @@ class AttributeParser:
         while self.pos < self.length:
             ch = self.text[self.pos]
             # "foo\\\\"
-            # "foo\"bar"
+            # "foo\" bar
             if not escaped and ch == '\\':
                 escaped = True
                 self.pos += 1
@@ -303,6 +302,7 @@ class AttributeParser:
         raise ParseError("Unclosed quoted string")
 
     def _read_comment(self) -> str:
+        self.pos += 1 # ignore the '%'
         start = self.pos
         while self.pos < self.length:
             ch = self.text[self.pos]
