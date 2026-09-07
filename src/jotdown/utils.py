@@ -1,0 +1,90 @@
+import string
+
+__all__ = [
+    'is_ascii_punctuation',
+    'is_name_char',
+    'is_ascii_whitespace',
+    'unescape_djot'
+]
+
+_ASCII_WHITESPACE = set(' \t\n\r\x0c')
+_COLON_UNDERSCORE_DASH = set(':_-')
+
+def is_ascii_punctuation(c: str) -> bool:
+    """
+    Checks if the value is an ASCII punctuation character.
+    
+    Implement Rust char::is_ascii_punctuation()
+    """
+    return c in string.punctuation
+
+def is_ascii_whitespace(c: str) -> bool:
+    """
+    Checks if the value is an ASCII whitespace character:
+    U+0020 SPACE, 
+    U+0009 HORIZONTAL TAB, \t, 
+    U+000A LINE FEED, \n,
+    U+000C FORM FEED, \f, or 
+    U+000D CARRIAGE RETURN \r
+    
+    Implement Rust char::is_ascii_whitespace()
+    Matches: space, tab, linefeed, carriage return and formfeed.
+    """
+    return c in _ASCII_WHITESPACE
+
+def is_name_char(c: str) -> bool:
+    """Chec if a character if Djot identifier.
+    
+    Implement Rust version's attr::is_name()
+    Matches: ASCII alpha numeric and _ - :
+    """
+    return c.isalnum() or c in _COLON_UNDERSCORE_DASH
+
+def unescape_djot(s: str) -> str:
+    """
+    Turn Djot-escaped string to plain text
+    
+    Used when rendering to convert Djot-escaped value in attributes list back to plain string.
+    
+    Examples:
+        >>> unescape_djot('foo\\"bar')
+        'foo"bar'
+        >>> unescape_djot('foo\\\\bar')
+        'foo\\bar'
+        >>> unescape_djot('foo\\*bar')
+        'foo*bar'
+    """
+    return ''.join(attribute_value_parts(s))
+
+
+def attribute_value_parts(s: str):
+    """
+    Yields parts of unescaped string.
+    """
+    start = 0 # start of current slice
+    i = 0 # start of find index.
+
+    while i < len(s):
+        j = s.find('\\', i) # find next backslash
+        if j == -1:
+            # No more backslashes
+            yield s[start:]
+            break
+
+        # char after backslash
+        if j + 1 < len(s):
+            if s[j + 1] == '\\':
+                # Unescape backslash
+                yield s[i:j + 1]
+                start = j + 2
+                i = j + 2
+            elif is_ascii_punctuation(s[j + 1]):
+                # Unscape punctuation
+                yield s[start:j]
+                start = j + 1
+                i = j + 1
+            else:
+                i = j + 1
+        else:
+            yield s[start:]
+            break
