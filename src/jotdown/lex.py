@@ -1,7 +1,11 @@
 from dataclasses import dataclass
 from enum import Enum, StrEnum, auto
-import string
 from typing import Callable, Optional
+
+from .utils import (
+    is_ascii_whitespace,
+    is_ascii_punctuation,
+)
 
 
 class Delimiter(Enum):
@@ -219,7 +223,7 @@ class Lexer:
 
             case '\\':
                 next_ch = self._peek_char()
-                if next_ch is not None and (next_ch.isascii() and (next_ch.isspace() or next_ch in string.punctuation)):
+                if next_ch is not None and (is_ascii_whitespace(next_ch) or is_ascii_punctuation(next_ch)):
                     self._escape = not self.verbatim
                     return KindEscape()
                 else:
