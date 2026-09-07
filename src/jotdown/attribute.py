@@ -7,55 +7,7 @@ from .utils import (
     is_name_char
 )
 
-class AttrKind(ABC):
-    @property
-    def key(self) -> Optional[str]:
-        return None
-
-@dataclass
-class ClassKind(AttrKind):
-    @property
-    def key(self) -> str:
-        return 'class'
-
-    def __repr__(self):
-        return "ClassKind()"
-
-@dataclass
-class IdKind(AttrKind):
-    @property
-    def key(self) -> str:
-        return 'id'
-
-    def __repr__(self):
-        return "IdKind()"
-
-@dataclass
-class PairKind(AttrKind):
-    key_: str
-
-    @property
-    def key(self) -> str:
-        return self.key
-
-    def __repr__(self):
-        return f"PairKind(key={self.key!r})"
-
-@dataclass
-class CommentKind(AttrKind):
-    @property
-    def key(self) -> Optional[str]:
-        return None
-
-    def __repr__(self):
-        return "CommentKind()"
-
-@dataclass
-class AttributeElem:
-    kind: AttrKind
-    value: str
-
-class AttrElem(ABC):
+class AttributeElem(ABC):
 
     @abstractmethod
     def key(self) -> Optional[str]:
@@ -70,7 +22,7 @@ class AttrElem(ABC):
         pass
 
 @dataclass
-class ClassAttr(AttrElem):
+class ClassAttribute(AttributeElem):
     name: str
 
     def key(self) -> str | None:
@@ -86,7 +38,7 @@ class ClassAttr(AttrElem):
         return f"ClassAttr({self.name!r})"
 
 @dataclass
-class IdAttr(AttrElem):
+class IdAttribute(AttributeElem):
     name: str
 
     def key(self) -> str | None:
@@ -102,7 +54,7 @@ class IdAttr(AttrElem):
         return f"IdAttr({self.name!r})"
 
 @dataclass
-class PairAttr(AttrElem):
+class PairAttribute(AttributeElem):
     key_: str
     value_: str
 
@@ -127,7 +79,7 @@ class PairAttr(AttrElem):
         return f"PairAttr({self.key_!r}, {self.value_!r})"
 
 @dataclass
-class CommentAttr(AttrElem):
+class CommentAttribute(AttributeElem):
     """Comment: %...%"""
     text: str
 
@@ -145,8 +97,7 @@ class CommentAttr(AttrElem):
 
 class Attributes:
     def __init__(self, elements: Optional[List[AttributeElem]] = None):
-        self._elements: List[AttributeElem] = elements or []
-        self._elems: List[AttrElem] = []
+        self._elems: List[AttributeElem] = elements or []
         self._idx: Dict[str, List[int]] = defaultdict(list)
         self._build_index()
 
@@ -157,7 +108,7 @@ class Attributes:
             if key is not None:
                 self._idx[key].append(i)
 
-    def push(self, elem: AttrElem):
+    def push(self, elem: AttributeElem):
         self._elems.append(elem)
         key = elem.key()
         if key is not None:
@@ -224,11 +175,7 @@ class Attributes:
         return iter(self._elems)
 
     def __repr__(self) -> str:
-        return f'Attributes({self._elements})'
-
-    def set_last_value(self, value: str):
-        self._elements[-1].value = value
-
+        return f'Attributes({self._elems})'
 
 class ParseError(Exception):
     pass
@@ -236,8 +183,6 @@ class ParseError(Exception):
 class InvalidStateError(ParseError):
     def __init__(self, pos: int):
         self.pos = pos
-
-
 
 class AttributeParser:
     def __init__(self, text: str):
@@ -294,7 +239,7 @@ class AttributeParser:
         """
         self.pos += 1 # ignore the '.'
         value = self._read_identifier()
-        self.attrs.push(ClassAttr(value))
+        self.attrs.push(ClassAttribute(value))
 
     def _parse_id(self):
         """
@@ -302,7 +247,7 @@ class AttributeParser:
         """
         self.pos += 1 # ignore the '#'
         value = self._read_identifier()
-        self.attrs.push(IdAttr(value))
+        self.attrs.push(IdAttribute(value))
 
     def _parse_comment(self):
         """
@@ -310,7 +255,7 @@ class AttributeParser:
         """
         self.pos += 1 # ignore the '%'
         content = self._read_comment()
-        self.attrs.push(CommentAttr(content))
+        self.attrs.push(CommentAttribute(content))
 
     def _parse_pair(self):
         key = self._read_identifier()
@@ -323,7 +268,7 @@ class AttributeParser:
         else:
             value = self._read_identifier()
 
-        self.attrs.push(PairAttr(key, value))
+        self.attrs.push(PairAttribute(key, value))
 
     # === Lexer methods ===
 
