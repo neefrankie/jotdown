@@ -166,7 +166,7 @@ class Attributes:
         for elem in self._elems:
             parts.append(elem.raw_text())
 
-        return '{' + ''.join(parts) + '}'
+        return '{' + ' '.join(parts) + '}'
 
     def __len__(self):
         return len(self._elems)
