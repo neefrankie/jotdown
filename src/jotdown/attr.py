@@ -1,49 +1,11 @@
 from abc import ABC
 from dataclasses import dataclass
 from enum import Enum, auto
-import string
 from typing import Dict, List, Optional
-
-_ASCII_WHITESPACE = set(' \t\n\r\x0c')
-
-def is_ascii_punctuation(c: str) -> bool:
-    return c in string.punctuation
-
-def is_name(c: str) -> bool:
-    return (c.isascii and c.isalnum()) or c in {':', '_', '-'}
-
-def is_ascii_whitespace(c: str) -> bool:
-    return c in _ASCII_WHITESPACE
-
-def attribute_value_parts(s: str):
-    start = 0 # start of current slice
-    i = 0 # start of find index.
-
-    while i < len(s):
-        j = s.find('\\', i) # find next backslash
-        if j == -1:
-            # No more backslashes
-            yield s[start:]
-            break
-
-        # char after backslash
-        if j + 1 < len(s):
-            if s[j + 1] == '\\':
-                # Unescape backslash
-                yield s[i:j + 1]
-                start = j + 2
-                i = j + 2
-            elif is_ascii_punctuation(s[j + 1]):
-                # Unscape punctuation
-                yield s[start:j]
-                start = j + 1
-                i = j + 1
-            else:
-                i = j + 1
-        else:
-            yield s[start:]
-            break
-
+from .utils import (
+    is_ascii_whitespace,
+    is_name_char
+)
 
 class AttrKind(ABC):
     @property
@@ -153,6 +115,161 @@ class Attributes:
     def __repr__(self) -> str:
         return f'Attributes({self._elements})'
 
+
+class ParseError(Exception):
+    pass
+
+class InvalidStateError(ParseError):
+    def __init__(self, pos: int):
+        self.pos = pos
+
+
+
+class AttributeParser:
+    def __init__(self, text: str):
+        self.text = text
+        self.pos = 0
+        self.length = len(text)
+        self.attrs = Attributes()
+
+    def parse(self):
+
+        while self.pos < self.length:
+            self._skip_whitespace()
+
+            if self.text[self.pos] == '{':
+                self._parse_one_block()
+            else:
+                self.pos += 1
+
+        return self.attrs
+
+    def _expect(self, expected: str):
+        if self.pos < self.length and self.text[self.pos] == expected:
+            self.pos += 1
+        else:
+            raise ParseError(f"Expected {expected} at position {self.pos}")
+
+    def _parse_one_block(self):
+        self._expect('{')
+        self._skip_whitespace()
+
+        while self.pos < self.length:
+            if self.text[self.pos] == '}':
+                self.pos += 1
+                break
+
+            ch = self.text[self.pos]
+
+            if ch == '.':
+                self._parse_class()
+            elif ch == '#':
+                self._parse_id()
+            elif ch == '%':
+                self._parse_comment()
+            elif is_name_char(ch):
+                self._parse_pair()
+            else:
+                self.pos += 1
+
+            self._skip_whitespace()
+
+    def _parse_class(self):
+        """
+        parse .foo
+        """
+        self.pos += 1 # ignore the '.'
+        value = self._read_identifier()
+        self.attrs.push(ClassKind(), value)
+
+    def _parse_id(self):
+        """
+        Parse #id
+        """
+        self.pos += 1 # ignore the '#'
+        value = self._read_identifier()
+        self.attrs.push(IdKind(), value)
+
+    def _parse_comment(self):
+        """
+        Parse %...% or %...}.
+        """
+        self.pos += 1 # ignore the '%'
+        content = self._read_comment()
+        self.attrs.push(CommentKind(), content)
+
+    def _parse_pair(self):
+        key = self._read_identifier()
+        self._skip_whitespace()
+        self._expect('=')
+        self._skip_whitespace()
+
+        if self.pos < self.length and self.text[self.pos] == '"':
+            value = self._read_quoted_string()
+        else:
+            value = self._read_identifier() # TODO:
+
+        self.attrs.push(PairKind(key), value)
+
+    # === Lexer methods ===
+
+    def _read_identifier(self) -> str:
+        start = self.pos
+        while self.pos < self.length and is_name_char(self.text[self.pos]):
+            self.pos += 1
+        if self.pos == start:
+            raise ParseError(f'Expected identifier at position {self.pos}')
+        return self.text[start:self.pos]
+
+    def _read_quoted_string(self) -> str:
+        self.pos += 1 # skip opening `"`
+        start = self.pos
+
+        escaped = False
+        while self.pos < self.length:
+            ch = self.text[self.pos]
+            # "foo\\\\"
+            # "foo\"bar"
+            if not escaped and ch == '\\':
+                escaped = True
+                self.pos += 1
+                continue
+            if not escaped and ch == '"':
+                end = self.pos
+                self.pos += 1
+                return self.text[start:end]
+            escaped = False
+            self.pos += 1
+
+        raise ParseError("Unclosed quoted string")
+
+    def _read_comment(self) -> str:
+        start = self.pos
+        while self.pos < self.length:
+            ch = self.text[self.pos]
+            if ch == '%':
+                # comment ends
+                end = self.pos
+                self.pos += 1
+                return self.text[start:end]
+            elif ch == '}':
+                end = self.pos
+                self.pos += 1
+                return self.text[start:end]
+            self.pos += 1
+
+        # Reaching EOF, comment not closed.
+        return self.text[start:self.pos]
+
+    def _skip_whitespace(self):
+        while self.pos < self.length:
+            ch = self.text[self.pos]
+            if is_ascii_whitespace(ch):
+                self.pos += 1
+            else:
+                break # stops at first non-whitespace
+
+
 class State(Enum):
     START = auto()
     WHITESPACE = auto()
@@ -189,7 +306,7 @@ class State(Enum):
                     return State.IDENTIFIER_FIRST
                 elif ch == '%':
                     return State.COMMENT_FIRST
-                elif is_name(ch):
+                elif is_name_char(ch):
                     return State.KEY
                 elif is_ascii_whitespace(ch):
                     return State.WHITESPACE
@@ -205,17 +322,17 @@ class State(Enum):
                 else:
                     return State.COMMENT
             case State.CLASS_FIRST:
-                if is_name(ch):
+                if is_name_char(ch):
                     return State.CLASS
                 else:
                     return State.INVALID
             case State.IDENTIFIER_FIRST:
-                if is_name(ch):
+                if is_name_char(ch):
                     return State.IDENTIFIER
                 else:
                     return State.INVALID
             case State.CLASS | State.IDENTIFIER | State.VALUE:
-                if is_name(ch):
+                if is_name_char(ch):
                     return self
                 elif is_ascii_whitespace(ch):
                     return State.WHITESPACE
@@ -224,14 +341,14 @@ class State(Enum):
                 else:
                     return State.INVALID
             case State.KEY:
-                if is_name(ch):
+                if is_name_char(ch):
                     return State.KEY
                 elif ch == '=':
                     return State.VALUE_FIRST
                 else:
                     return State.INVALID
             case State.VALUE_FIRST:
-                if is_name(ch):
+                if is_name_char(ch):
                     return State.VALUE
                 elif ch == '"':
                     return State.VALUE_QUOTED
@@ -260,13 +377,6 @@ class State(Enum):
                     return State.VALUE_QUOTED
             case State.INVALID | State.DONE:
                 raise Exception(f'Invalid state {self.name}')
-
-class ParseError(Exception):
-    pass
-
-class InvalidStateError(ParseError):
-    def __init__(self, pos: int):
-        self.pos = pos
 
 
 class Parser:
@@ -323,120 +433,3 @@ class Parser:
 
     def finish(self) -> Attributes:
         return self.attrs
-
-class AttrbuteParser:
-    def __init__(self, text: str):
-        self.text = text
-        self.pos = 0
-        self.length = len(text)
-        self.attrs = Attributes()
-
-    def parse(self, src: str):
-        self._expect("{")
-        while self.pos < self.length:
-            self._skip_whitespace()
-
-            if self.pos >= self.length or self.text[self.pos] == '}':
-                break
-
-            ch = self.text[self.pos]
-            if ch == '.':
-                self._parse_class()
-            elif ch == '#':
-                self._parse_id()
-            elif ch == '%':
-                self._parse_comment()
-            else:
-                self._parse_pair()
-
-        self._expect('}')
-        return self.attrs
-
-    def _expect(self, expected: str):
-        if self.pos < self.length and self.text[self.pos] == expected:
-            self.pos += 1
-        else:
-            raise ParseError(f"Expected {expected} at position {self.pos}")
-
-    def _parse_class(self):
-        self.pos += 1 # ignore the '.'
-        value = self._read_identifier()
-        self.attrs.push(ClassKind(), value)
-
-    def _parse_id(self):
-        self.pos += 1 # ignore the '#'
-        value = self._read_identifier()
-        self.attrs.push(IdKind(), value)
-
-    def _parse_comment(self):
-        
-        self.pos += 1 # ignore the '%'
-        value = self._read_comment()
-        self.attrs.push(CommentKind(), value)
-
-    def _parse_pair(self):
-        key = self._read_identifier()
-        self._skip_whitespace()
-        self._expect('=')
-        self._skip_whitespace()
-
-        if self.text[self.pos] == '"':
-            value = self._read_quoted_string()
-        else:
-            value = self._read_identifier()
-
-        self.attrs.push(PairKind(key), value)
-
-    # === Lexer methods ===
-
-    def _read_identifier(self) -> str:
-        start = self.pos
-        while self.pos < self.length and is_name(self.text[self.pos]):
-            self.pos += 1
-        return self.text[start:self.pos]
-
-    def _read_quoted_string(self) -> str:
-        self.pos += 1 # skip opening `"`
-        start = self.pos
-        escaped = False
-
-        while self.pos < self.length:
-            ch = self.text[self.pos]
-            # "foo\\\\"
-            # "foo\"bar"
-            if not escaped and ch == '\\':
-                escaped = True
-                self.pos += 1
-                continue
-            if not escaped and ch == '"':
-                end = self.pos
-                self.pos += 1
-                return self.text[start:end]
-            escaped = False
-            self.pos += 1
-
-        raise ParseError("Unclosed quote")
-
-    def _read_comment(self) -> str:
-        start = self.pos
-        while self.pos < self.length:
-            ch = self.text[self.pos]
-
-            if ch == '}':
-                end = self.pos
-                self.pos += 1
-                return self.text[start:end]
-            if ch == '%':
-                # TODO: the specification does not say if escaped % should be allowed inside comment.
-                end = self.pos
-                self.pos += 1
-                return self.text[start:end]
-            self.pos += 1
-
-        raise ParseError("Unclosed comment")
-
-
-
-    def _skip_whitespace(self):
-        while self.pos < self.length and is_ascii_whitespace(self.text[self.pos]):
-            self.pos += 1 # stops at first non-whitespace
