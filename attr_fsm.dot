@@ -1,0 +1,74 @@
+digraph AttributeFSM {
+    rankdir=LR;  // 让图从左到右排列
+    node [shape=circle]; // 状态用圆形表示
+
+    // 定义状态
+    Start -> Whitespace [label="\{"];  // { 触发的转换
+    Start -> Invalid;
+    Whitespace -> Class_first [label="."];
+    Whitespace -> ID_first [label="#"];
+    Whitespace -> Comment_first [label="%"];
+    Whitespace -> Key [label="name"];
+    Whitespace -> Whitespace [label="whitespace"];
+    Whitespace -> Invalid;
+
+    Comment_first -> Whitespace [label="%"];
+    Comment_first -> Done [label="\}"];
+    Comment_first -> Comment_newline [label="\n"];
+    Comment_first -> Comment;
+
+    Comment -> Whitespace [label="%"];
+    Comment -> Done [label="\}"];
+    Comment -> Comment_newline [label="\n"];
+    Comment -> Comment;
+
+    Comment_newline -> Whitespace [label="%"];
+    Comment_newline -> Done [label="\}"];
+    Comment_newline -> Comment_newline [label="\n"];
+    Comment_newline -> Comment;
+
+    Class_first -> Class;
+    Class_first -> Invalid;
+
+    ID_first -> ID;
+    ID_first -> Invalid;
+
+    Class -> Class
+    Class -> Whitespace [label="whitespace"];
+    Class -> Done [label="\}"];
+    Class -> Invalid;
+
+    ID -> ID;
+    ID -> Whitespace [label="whitespace"];
+    ID -> Done [label="\}"];
+    ID -> Invalid;
+
+    Value -> Value;
+    Value -> Whitespace [label="whitespace"];
+    Value -> Done [label="\}"];
+    Value -> Invalid;
+
+    Key -> Key;
+    Key -> Value_first [label="="];
+    Key -> Invalid;
+    
+    Value_first -> Value;
+    Value_first -> Value_quoted;
+    Value_first -> Invalid;
+
+    Value_quoted -> Whitespace [label="whitespace"];
+    Value_quoted -> Value_newline [label="\n"];
+    Value_quoted -> Value_escape [label="\\"];
+    Value_quoted -> Value_quoted;
+
+    Value_newline -> Whitespace [label="\""];
+    Value_newline -> Value_newline [label="\n"];
+    Value_newline -> Value_continued;
+
+    Value_continued -> Whitespace [label="\""];
+    Value_continued -> Value_newline [label="\n"];
+    Value_continued -> Value_continued;
+
+    Value_escape -> Value_newline [label="\n"];
+    Value_escape -> Value_quoted;
+}
