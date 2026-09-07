@@ -187,6 +187,9 @@ class Lexer:
         )
 
     def _handle_escaped(self, ch: str) -> TokenKind:
+        """
+        Inspect char after \
+        """
         match ch:
             case '\n': # \\n
                 return KindHardbreak()
