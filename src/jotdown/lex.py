@@ -332,11 +332,11 @@ class Lexer:
                 return KindText()
 
     def _peek_char(self, n: int = 0) -> Optional[str]:
-            idx = self._pos + n
-            if idx < len(self._src):
-                return self._src[idx]
-    
-            return None
+        idx = self._pos + n
+        if idx < len(self._src):
+            return self._src[idx]
+
+        return None
     
     def _eat_char(self) -> Optional[str]:
         if self._pos < len(self._src):
