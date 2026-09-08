@@ -203,16 +203,11 @@ class AttributeParser:
 
         return self.attrs
 
-    def _expect(self, expected: str):
-        if self.pos < self.length and self.text[self.pos] == expected:
-            self.pos += 1
-        else:
-            raise ParseError(f"Expected {expected} at position {self.pos}")
-
     def _parse_one_block(self):
         self._expect('{')
         self._skip_whitespace()
 
+        elements: List[AttributeElement] = []
         while self.pos < self.length:
             if self.text[self.pos] == '}':
                 self.pos += 1
@@ -221,42 +216,46 @@ class AttributeParser:
             ch = self.text[self.pos]
 
             if ch == '.':
-                self._parse_class()
+                elements.append(self._parse_class())
             elif ch == '#':
-                self._parse_id()
+                elements.append(self._parse_id())
             elif ch == '%':
-                self._parse_comment()
+                elements.append(self._parse_comment())
             elif is_name_char(ch):
-                self._parse_pair()
+                elements.append(self._parse_pair())
             else:
                 self.pos += 1
 
             self._skip_whitespace()
 
-    def _parse_class(self):
+    def _parse_class(self) -> ClassAttribute:
         """
         parse .foo
         """
         self.pos += 1 # ignore the '.'
         value = self._read_identifier()
-        self.attrs.push(ClassAttribute(value))
+        if not value:
+            raise ParseError(f"Expected class name at {self.pos}")
+        return ClassAttribute(value)
 
-    def _parse_id(self):
+    def _parse_id(self) -> IdAttribute:
         """
         Parse #id
         """
         self.pos += 1 # ignore the '#'
         value = self._read_identifier()
-        self.attrs.push(IdAttribute(value))
+        if not value:
+            raise ParseError(f"Expected id name at {self.pos}")
+        return IdAttribute(value)
 
-    def _parse_comment(self):
+    def _parse_comment(self) -> CommentAttribute:
         """
         Parse %...% or %...}.
         """
         content = self._read_comment()
-        self.attrs.push(CommentAttribute(content))
+        return CommentAttribute(content)
 
-    def _parse_pair(self):
+    def _parse_pair(self) -> PairAttribute:
         key = self._read_identifier()
         self._skip_whitespace()
         self._expect('=')
@@ -266,8 +265,10 @@ class AttributeParser:
             value = self._read_quoted_string()
         else:
             value = self._read_identifier()
+            if not value:
+                raise ParseError(f"Expected value for key {key} at {self.pos}")
 
-        self.attrs.push(PairAttribute(key, value))
+        return PairAttribute(key, value)
 
     # === Lexer methods ===
 
@@ -327,3 +328,9 @@ class AttributeParser:
                 self.pos += 1
             else:
                 break # stops at first non-whitespace
+
+    def _expect(self, expected: str):
+        if self.pos < self.length and self.text[self.pos] == expected:
+            self.pos += 1
+        else:
+            raise ParseError(f"Expected {expected} at position {self.pos}")
