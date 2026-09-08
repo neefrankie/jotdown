@@ -220,8 +220,8 @@ class AttributeParser:
             elem = self._parse_element()
             if elem is not None:
                 yield elem
-
-            raise ParseError(f'Unknown character at {self.pos}: {self.text[self.pos]}')
+            else:
+                raise ParseError(f'Unknown character at {self.pos}: {self.text[self.pos]}')
 
     def _parse_element(self) -> Optional[AttributeElement]:
         ch = self.text[self.pos]
