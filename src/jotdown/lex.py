@@ -132,28 +132,7 @@ class Lexer:
 
         return current
 
-    def _peek_char(self, n: int = 0) -> Optional[str]:
-        idx = self._pos + n
-        if idx < len(self._src):
-            return self._src[idx]
-
-        return None
-
-    def _eat_char(self) -> Optional[str]:
-        if self._pos < len(self._src):
-            c = self._src[self._pos]
-            self._pos += 1
-            return c
-        return None
-
-    def _eat_while(self, predicate: Callable[[str], bool]):
-        c = self._peek_char()
-        while c is not None:
-            if predicate(c):
-                self._eat_char()
-                c = self._peek_char()
-            else:
-                break
+    
 
     def _token(self) -> Optional[Token]:
         start = self._pos
@@ -351,6 +330,29 @@ class Lexer:
 
             case _:
                 return KindText()
+
+    def _peek_char(self, n: int = 0) -> Optional[str]:
+            idx = self._pos + n
+            if idx < len(self._src):
+                return self._src[idx]
+    
+            return None
+    
+    def _eat_char(self) -> Optional[str]:
+        if self._pos < len(self._src):
+            c = self._src[self._pos]
+            self._pos += 1
+            return c
+        return None
+
+    def _eat_while(self, predicate: Callable[[str], bool]):
+        c = self._peek_char()
+        while c is not None:
+            if predicate(c):
+                self._eat_char()
+                c = self._peek_char()
+            else:
+                break
 
     def _eat_seq(self, s: Sequence) -> TokenKind:
         self._eat_while(lambda c: c == s.value) # stops after ```
