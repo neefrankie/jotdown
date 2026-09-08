@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, Iterator, List, Optional
 from .utils import (
     is_ascii_whitespace,
     is_name_char
@@ -189,21 +189,26 @@ class AttributeParser:
         self.text = text
         self.pos = 0
         self.length = len(text)
-        self.attrs = Attributes()
 
-    def parse(self):
+    def parse(self) -> Iterator[AttributeElement]:
 
         while self.pos < self.length:
             self._skip_whitespace()
 
             if self.text[self.pos] == '{':
-                self._parse_one_block()
+                yield from self._parse_one_block()
             else:
                 self.pos += 1
 
-        return self.attrs
+    def finish(self) -> Attributes:
+        attrs = Attributes()
+        for element in self.parse():
+            attrs.push(element)
 
-    def _parse_one_block(self):
+        return attrs
+
+
+    def _parse_one_block(self) -> Iterator[AttributeElement]:
         self._expect('{')
 
         while self.pos < self.length:
