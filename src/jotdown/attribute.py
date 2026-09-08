@@ -205,28 +205,37 @@ class AttributeParser:
 
     def _parse_one_block(self):
         self._expect('{')
-        self._skip_whitespace()
 
-        elements: List[AttributeElement] = []
         while self.pos < self.length:
+
+            self._skip_whitespace()
+            if self.pos >= self.length:
+                break
+            
             if self.text[self.pos] == '}':
                 self.pos += 1
                 break
 
-            ch = self.text[self.pos]
+            elem = self._parse_element()
+            if elem is not None:
+                yield elem
 
-            if ch == '.':
-                elements.append(self._parse_class())
-            elif ch == '#':
-                elements.append(self._parse_id())
-            elif ch == '%':
-                elements.append(self._parse_comment())
-            elif is_name_char(ch):
-                elements.append(self._parse_pair())
-            else:
-                self.pos += 1
+            # unknown char
+            self.pos += 1
 
-            self._skip_whitespace()
+    def _parse_element(self) -> Optional[AttributeElement]:
+        ch = self.text[self.pos]
+
+        if ch == '.':
+            return self._parse_class()
+        elif ch == '#':
+            return self._parse_id()
+        elif ch == '%':
+            return self._parse_comment()
+        elif is_name_char(ch):
+            return self._parse_pair()
+        else:
+            return None
 
     def _parse_class(self) -> ClassAttribute:
         """
