@@ -76,15 +76,9 @@ class KindSeq(TokenKind):
     sequence: 'Sequence'
 
 @dataclass
-class Span:
-    start: int
-    end: int
-
-@dataclass
 class Token:
     kind: TokenKind
-    text: str
-    span: Span
+    length: int
 
 class Lexer:
 
@@ -104,9 +98,10 @@ class Lexer:
 
     def ahead(self) -> str:
         """
-        For python this might not be needed.
+        The slice from the start of of token being parsed to the end of the string.
         """
-        start = self._next.span.start if self._next else self._pos
+        l = self._next.length if self._next else 0
+        start = self._pos - l
         return self._src[start:]
 
     def skip_ahead(self, n: int):
@@ -127,8 +122,7 @@ class Lexer:
                 self._next = self._token()
                 if self._next is None or not isinstance(self._next.kind, KindText):
                     break
-                current.span.end = self._next.span.end
-                current.text += self._next.text
+                current.length += self._next.length
 
         return current
 
@@ -146,8 +140,7 @@ class Lexer:
             kind = self._handle_escaped(ch)
             return Token(
                 kind=kind,
-                text=self._src[start:self._pos],
-                span=Span(start, self._pos)
+                length=self._pos - start,
             )
 
         self._eat_while(lambda c: c not in self._SPECIAL_CHARS)
@@ -155,8 +148,7 @@ class Lexer:
         if start < self._pos:
             return Token(
                 kind=KindText(),
-                text=self._src[start:self._pos],
-                span=Span(start, self._pos),
+                length=self._pos-start,
             )
 
         ch = self._eat_char()
@@ -165,8 +157,7 @@ class Lexer:
         kind = self._handle_special(ch)
         return Token(
             kind=kind,
-            text=self._src[start:self._pos],
-            span=Span(start, self._pos)
+            length=self._pos - start,
         )
 
     def _handle_escaped(self, ch: str) -> TokenKind:

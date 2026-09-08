@@ -16,7 +16,6 @@ from jotdown.lex import (
     Delimiter,
     Symbol,
     Sequence,
-    Span,
 )
 
 def test_lex(src: str, expected_tokens: List[Token]):
@@ -195,38 +194,31 @@ class TestLexer(unittest.TestCase):
         expected = [
             Token(
                 kind=KindSym(Symbol.ASTERISK),
-                text='*',
-                span=Span(0, 1)
+                length=1
             ),
             Token(
                 kind=KindText(),
-                text='hello',
-                span=Span(1, 6),
+                length=5,
             ),
             Token(
                 kind=KindSym(Symbol.ASTERISK),
-                text='*',
-                span=Span(6, 7)
+                length=1,
             ),
             Token(
                 kind=KindText(),
-                text=' ',
-                span=Span(7, 8),
+                length=1,
             ),
             Token(
                 kind=KindSym(Symbol.UNDERSCORE),
-                text='_',
-                span=Span(8, 9),
+                length=1,
             ),
             Token(
                 kind=KindText(),
-                text='world',
-                span=Span(9, 14),
+                length=5,
             ),
             Token(
                 kind=KindSym(Symbol.UNDERSCORE),
-                text='_',
-                span=Span(14, 15),
+                length=1,
             ),
             None,
             None
@@ -244,8 +236,7 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindText(), 
-                        text='hello world', 
-                        span=Span(0, len('hello world'))
+                        length=len('hello world')
                     )
                 ]
             ),
@@ -254,13 +245,11 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindText(), 
-                        text='hello', 
-                        span=Span(0, 5)
+                        length=len('hello'), 
                     ),
                     Token(
                         kind=KindNewline(),
-                        text='\n',
-                        span=Span(5, 6)
+                        length=len('\n'),
                     )
                 ]
             ),
@@ -269,13 +258,11 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindEscape(), 
-                        text='\\', 
-                        span=Span(0, 1)
+                        length=len('\\')
                     ),
                     Token(
                         kind=KindNbsp(),
-                        text=' ',
-                        span=Span(1, 2)
+                        length=len(' '),
                     )
                 ]
             ),
@@ -284,13 +271,11 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindEscape(), 
-                        text='\\', 
-                        span=Span(0, 1)
+                        length=len('\\')
                     ),
                     Token(
                         kind=KindHardbreak(),
-                        text='\n',
-                        span=Span(1, 2)
+                        length=len('\n')
                     )
                 ]
             ),
@@ -299,13 +284,11 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindText(), 
-                        text='\\', 
-                        span=Span(0, 1)
+                        length=len('\\')
                     ),
                     Token(
                         kind=KindText(),
-                        text='a',
-                        span=Span(1, 2)
+                        length=len('a')
                     ),
                 ]
             ),
@@ -314,18 +297,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindEscape(), 
-                        text='\\', 
-                        span=Span(0, 1)
+                        length=len('\\'), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='*',
-                        span=Span(1, 2)
+                        length=len('*'),
                     ),
                     Token(
                         kind=KindText(),
-                        text='a',
-                        span=Span(2, 3)
+                        length=len('a'),
                     ),
                 ]
             ),
@@ -334,18 +314,16 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindOpen(Delimiter.BRACKET), 
-                        text='[', 
-                        span=Span(0, 1),
+                        length=len('['), 
+    
                     ),
                     Token(
                         kind=KindText(),
-                        text='Link',
-                        span=Span(1, 5),
+                        length=len('Link'),
                     ),
                     Token(
                         kind=KindClose(Delimiter.BRACKET),
-                        text=']',
-                        span=Span(5, 6)
+                        length=len(']'),
                     )
                 ]
             ),
@@ -354,18 +332,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindOpen(Delimiter.PAREN), 
-                        text='(', 
-                        span=Span(0, 1),
+                        length=len('('), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='url',
-                        span=Span(1, 4),
+                        length=len('url'),
                     ),
                     Token(
                         kind=KindClose(Delimiter.PAREN),
-                        text=')',
-                        span=Span(4, 5)
+                        length=len(')'),
                     )
                 ]
             ),
@@ -374,18 +349,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindOpen(Delimiter.PAREN), 
-                        text='(', 
-                        span=Span(0, 1),
+                        length=len('('), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='url',
-                        span=Span(1, 4),
+                        length=len('url'),
                     ),
                     Token(
                         kind=KindClose(Delimiter.PAREN),
-                        text=')',
-                        span=Span(4, 5)
+                        length=len(')'),
                     )
                 ]
             ),
@@ -394,18 +366,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindOpen(Delimiter.BRACE_ASTERISK), 
-                        text='{*', 
-                        span=Span(0, 2),
+                        length=len('{*'), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='strong',
-                        span=Span(2, 8),
+                        length=len('strong'),
                     ),
                     Token(
                         kind=KindClose(Delimiter.BRACE_ASTERISK),
-                        text='*}',
-                        span=Span(8, 10)
+                        length=len('*}'),
                     )
                 ]
             ),
@@ -414,18 +383,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindOpen(Delimiter.BRACE_CARET), 
-                        text='{^', 
-                        span=Span(0, 2),
+                        length=len('{^'), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='TM',
-                        span=Span(2, 4),
+                        length=len('TM'),
                     ),
                     Token(
                         kind=KindClose(Delimiter.BRACE_CARET),
-                        text='^}',
-                        span=Span(4, 6)
+                        length=len('^}'),
                     )
                 ]
             ),
@@ -434,18 +400,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindOpen(Delimiter.BRACE_EQUAL), 
-                        text='{=', 
-                        span=Span(0, 2),
+                        length=len('{='), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='highlighted',
-                        span=Span(2, 13),
+                        length=len('highlighted'),
                     ),
                     Token(
                         kind=KindClose(Delimiter.BRACE_EQUAL),
-                        text='=}',
-                        span=Span(13, 15)
+                        length=len('=}'),
                     )
                 ]
             ),
@@ -454,18 +417,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindOpen(Delimiter.BRACE_HYPHEN), 
-                        text='{-', 
-                        span=Span(0, 2),
+                        length=len('{-'), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='delete',
-                        span=Span(2, 8),
+                        length=len('delete'),
                     ),
                     Token(
                         kind=KindClose(Delimiter.BRACE_HYPHEN),
-                        text='-}',
-                        span=Span(8, 10)
+                        length=len('-}'),
                     )
                 ]
             ),
@@ -474,18 +434,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindOpen(Delimiter.BRACE_PLUS), 
-                        text='{+', 
-                        span=Span(0, 2),
+                        length=len('{+'), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='insert',
-                        span=Span(2, 8),
+                        length=len('insert'),
                     ),
                     Token(
                         kind=KindClose(Delimiter.BRACE_PLUS),
-                        text='+}',
-                        span=Span(8, 10)
+                        length=len('+}'),
                     )
                 ]
             ),
@@ -494,18 +451,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindOpen(Delimiter.BRACE_TILDE), 
-                        text='{~', 
-                        span=Span(0, 2),
+                        length=len('{~'), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='2',
-                        span=Span(2, 3),
+                        length=len('2'),
                     ),
                     Token(
                         kind=KindClose(Delimiter.BRACE_TILDE),
-                        text='~}',
-                        span=Span(3, 5)
+                        length=len('~}'),
                     )
                 ]
             ),
@@ -514,18 +468,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindOpen(Delimiter.BRACE_UNDERSCORE), 
-                        text='{_', 
-                        span=Span(0, 2),
+                        length=len('{_'),
                     ),
                     Token(
                         kind=KindText(),
-                        text='emphasis',
-                        span=Span(2, 10),
+                        length=len('emphasis'),
                     ),
                     Token(
                         kind=KindClose(Delimiter.BRACE_UNDERSCORE),
-                        text='_}',
-                        span=Span(10, 12)
+                        length=len('_}'),
                     )
                 ]
             ),
@@ -534,18 +485,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindOpen(Delimiter.BRACE_QUOTE1), 
-                        text='{\'', 
-                        span=Span(0, 2),
+                        length=len('{\''), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='quote',
-                        span=Span(2, 7),
+                        length=len('quote'),
                     ),
                     Token(
                         kind=KindClose(Delimiter.BRACE_QUOTE1),
-                        text='\'}',
-                        span=Span(7, 9)
+                        length=len('\'}'),
                     )
                 ]
             ),
@@ -554,18 +502,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindOpen(Delimiter.BRACE_QUOTE2), 
-                        text='{"', 
-                        span=Span(0, 2),
+                        length=len('{"'), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='quote',
-                        span=Span(2, 7),
+                        length=len('quote'),
                     ),
                     Token(
                         kind=KindClose(Delimiter.BRACE_QUOTE2),
-                        text='"}',
-                        span=Span(7, 9)
+                        length=len('"}'),
                     )
                 ]
             ),
@@ -574,18 +519,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindOpen(Delimiter.BRACE), 
-                        text='{', 
-                        span=Span(0, 1),
+                        length=len('{'), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='#foo',
-                        span=Span(1, 5),
+                        length=len('#foo'),
                     ),
                     Token(
                         kind=KindClose(Delimiter.BRACE),
-                        text='}',
-                        span=Span(5, 6)
+                        length=len('}'),
                     )
                 ]
             ),
@@ -594,18 +536,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindSym(Symbol.EXCLAIM_BRACKET), 
-                        text='![', 
-                        span=Span(0, 2),
+                        length=len('!['), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='cat',
-                        span=Span(2, 5),
+                        length=len('cat'),
                     ),
                     Token(
                         kind=KindClose(Delimiter.BRACKET),
-                        text=']',
-                        span=Span(5, 6)
+                        length=len(']'),
                     )
                 ]
             ),
@@ -614,8 +553,7 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindSym(Symbol.LT), 
-                        text='<', 
-                        span=Span(0, 1),
+                        length=len('<'), 
                     ),
                 ]
             ),
@@ -624,18 +562,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindSym(Symbol.PIPE), 
-                        text='|', 
-                        span=Span(0, 1),
+                        length=len('|'), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='Header',
-                        span=Span(1, 7),
+                        length=len('Header'),
                     ),
                     Token(
                         kind=KindSym(Symbol.PIPE),
-                        text='|',
-                        span=Span(7, 8)
+                        length=len('|'),
                     )
                 ]
             ),
@@ -644,18 +579,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindSym(Symbol.COLON), 
-                        text=':', 
-                        span=Span(0, 1),
+                        length=len(':'), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='smiley',
-                        span=Span(1, 7),
+                        length=len('smiley'),
                     ),
                     Token(
                         kind=KindSym(Symbol.COLON),
-                        text=':',
-                        span=Span(7, 8)
+                        length=len(':'),
                     )
                 ]
             ),
@@ -664,18 +596,15 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindSeq(Sequence.BACKTICK), 
-                        text='``', 
-                        span=Span(0, 2),
+                        length=len('``'), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='x',
-                        span=Span(2, 3),
+                        length=len('x'),
                     ),
                     Token(
                         kind=KindSeq(Sequence.BACKTICK),
-                        text='``',
-                        span=Span(3, 5)
+                        length=len('``'),
                     )
                 ]
             ),
@@ -684,13 +613,11 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindSeq(Sequence.PERIOD), 
-                        text='.', 
-                        span=Span(0, 1),
+                        length=len('.'), 
                     ),
                     Token(
                         kind=KindText(),
-                        text='red',
-                        span=Span(1, 4),
+                        length=len('red'),
                     ),
                 ]
             ),
@@ -709,8 +636,7 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindText(), 
-                        text='\\a', 
-                        span=Span(0, 2)
+                        length=len('\\a'), 
                     ),
                 ]
             ),
@@ -719,13 +645,11 @@ class TestLexer(unittest.TestCase):
                 [
                     Token(
                         kind=KindEscape(), 
-                        text='\\', 
-                        span=Span(0, 1)
+                        length=len('\\'), 
                     ),
                     Token(
                         kind=KindText(), 
-                        text='*a', 
-                        span=Span(1, 3)
+                        length=len('*a'), 
                     ),
                 ]
             ),
@@ -742,54 +666,45 @@ class TestLexer(unittest.TestCase):
         test_lex('', [])
 
     def test_basic(self):
-        test_lex('abc', [Token(kind=KindText(), text='abc', span=Span(0, 3))])
+        test_lex('abc', [Token(kind=KindText(), length=3)])
         test_lex(
             'para w/ some _emphasis_ and *strong*.',
             [
                 Token(
                     kind=KindText(),
-                    text='para w/ some ',
-                    span=Span(0, len('para w/ some '))
+                    length=len('para w/ some ')
                 ),
                 Token(
                     kind=KindSym(Symbol.UNDERSCORE),
-                    text='_',
-                    span=Span(len('para w/ some '), len('para w/ some _'))
+                    length=1
                 ),
                 Token(
                     kind=KindText(),
-                    text='emphasis',
-                    span=Span(len('para w/ some _'), len('para w/ some _emphasis')),
+                    length=len('emphasis'),
                 ),
                 Token(
                     kind=KindSym(Symbol.UNDERSCORE),
-                    text='_',
-                    span=Span(len('para w/ some _emphasis'), len('para w/ some _emphasis_'))
+                    length=len('_'),
                 ),
                 Token(
                     kind=KindText(),
-                    text=' and ',
-                    span=Span(len('para w/ some _emphasis_'), len('para w/ some _emphasis_ and ')),
+                    length=len(' and '),
                 ),
                 Token(
                     kind=KindSym(Symbol.ASTERISK),
-                    text='*',
-                    span=Span(len('para w/ some _emphasis_ and '), len('para w/ some _emphasis_ and *'))
+                    length=len('*'),
                 ),
                 Token(
                     kind=KindText(),
-                    text='strong',
-                    span=Span(len('para w/ some _emphasis_ and *'), len('para w/ some _emphasis_ and *strong')),
+                    length=len('strong'),
                 ),
                 Token(
                     kind=KindSym(Symbol.ASTERISK),
-                    text='*',
-                    span=Span(len('para w/ some _emphasis_ and *strong'), len('para w/ some _emphasis_ and *strong*'))
+                    length=len('*'),
                 ),
                 Token(
                     kind=KindSeq(Sequence.PERIOD),
-                    text='.',
-                    span=Span(len('para w/ some _emphasis_ and *strong*'), len('para w/ some _emphasis_ and *strong*.'))
+                    length=len('.'),
                 )
             ]
         )
@@ -800,8 +715,7 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindText(),
-                    text=r'\a',
-                    span=Span(0, 2),
+                    length=2,
                 ),
             ]
         )
@@ -810,13 +724,11 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindEscape(),
-                    text='\\', # cannot use raw string here.
-                    span=Span(0, 1),
+                    length=len('\\'), # cannot use raw string here.
                 ),
                 Token(
                     kind=KindText(),
-                    text=r'\a',
-                    span=Span(1, 3),
+                    length=1,
                 ),
             ]
         )
@@ -825,13 +737,11 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindEscape(),
-                    text='\\',
-                    span=Span(0, 1),
+                    length=1,
                 ),
                 Token(
                     kind=KindText(),
-                    text='.',
-                    span=Span(1, 2),
+                    length=1,
                 )
             ]
         )
@@ -840,13 +750,11 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindEscape(),
-                    text='\\',
-                    span=Span(0, 1),
+                    length=1,
                 ),
                 Token(
                     kind=KindNbsp(),
-                    text=' ',
-                    span=Span(1, 2)
+                    length=1
                 )
             ]
         )
@@ -855,18 +763,15 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindEscape(),
-                    text='\\',
-                    span=Span(0, 1),
+                    length=1,
                 ),
                 Token(
                     kind=KindText(),
-                    text='{',
-                    span=Span(1, 2),
+                    length=1,
                 ),
                 Token(
                     kind=KindSeq(Sequence.HYPHEN),
-                    text='-',
-                    span=Span(2, 3),
+                    length=1,
                 ),
             ]
         )
@@ -877,18 +782,15 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindText(),
-                    text='a',
-                    span=Span(0, 1),
+                    length=1,
                 ),
                 Token(
                     kind=KindEscape(),
-                    text='\\',
-                    span=Span(1, 2),
+                    length=1,
                 ),
                 Token(
                     kind=KindHardbreak(),
-                    text='\n',
-                    span=Span(2, 3),
+                    length=1,
                 ),
             ]
         )
@@ -897,18 +799,15 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindText(),
-                    text='a',
-                    span=Span(0, 1),
+                    length=len('a'),
                 ),
                 Token(
                     kind=KindEscape(),
-                    text='\\',
-                    span=Span(1, 2),
+                    length=1,
                 ),
                 Token(
                     kind=KindHardbreak(),
-                    text='   \n',
-                    span=Span(2, 6)
+                    length=4
                 )
             ]
         )
@@ -917,18 +816,15 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindText(),
-                    text='a',
-                    span=Span(0, 1),
+                    length=1,
                 ),
                 Token(
                     kind=KindEscape(),
-                    text='\\',
-                    span=Span(1, 2),
+                    length=1,
                 ),
                 Token(
                     kind=KindHardbreak(),
-                    text='\t \t \n',
-                    span=Span(2, 7),
+                    length=5,
                 )
             ]
         )
@@ -939,8 +835,7 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindOpen(Delimiter.BRACE_HYPHEN),
-                    text='{-',
-                    span=Span(0, 2)
+                    length=2
                 )
             ]
         )
@@ -949,8 +844,7 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindClose(Delimiter.BRACE_HYPHEN),
-                    text='-}',
-                    span=Span(0, 2)
+                    length=2
                 )
             ]
         )
@@ -959,13 +853,11 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindOpen(Delimiter.BRACE_PLUS),
-                    text='{+',
-                    span=Span(0, 2)
+                    length=2
                 ),
                 Token(
                     kind=KindClose(Delimiter.BRACE_PLUS),
-                    text='+}',
-                    span=Span(2, 4)
+                    length=2
                 )
             ]
         )
@@ -976,48 +868,39 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindSym(Symbol.QUOTE1),
-                    text="'",
-                    span=Span(0, 1)
+                    length=len("'"),
                 ),
                 Token(
                     kind=KindSym(Symbol.ASTERISK),
-                    text="*",
-                    span=Span(1, 2)
+                    length=len("*"),
                 ),
                 Token(
                     kind=KindSym(Symbol.CARET),
-                    text="^",
-                    span=Span(2, 3)
+                    length=len("^"),
                 ),
                 Token(
                     kind=KindSym(Symbol.EXCLAIM_BRACKET),
-                    text="![",
-                    span=Span(3, 5)
+                    length=len("!["),
                 ),
                 Token(
                     kind=KindSym(Symbol.LT),
-                    text="<",
-                    span=Span(5, 6)
+                    length=len("<"),
                 ),
                 Token(
                     kind=KindSym(Symbol.PIPE),
-                    text="|",
-                    span=Span(6, 7)
+                    length=len("|"),
                 ),
                 Token(
                     kind=KindSym(Symbol.QUOTE2),
-                    text='"',
-                    span=Span(7, 8)
+                    length=len('"'),
                 ),
                 Token(
                     kind=KindSym(Symbol.TILDE),
-                    text="~",
-                    span=Span(8, 9)
+                    length=len("~"),
                 ),
                 Token(
                     kind=KindSym(Symbol.UNDERSCORE),
-                    text="_",
-                    span=Span(9, 10)
+                    length=len("_"),
                 )
             ]
         )
@@ -1026,23 +909,19 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindSym(Symbol.QUOTE1),
-                    text="'",
-                    span=Span(0, 1),
+                    length=1,
                 ),
                 Token(
                     kind=KindSym(Symbol.QUOTE1),
-                    text="'",
-                    span=Span(1, 2),
+                    length=1,
                 ),
                 Token(
                     kind=KindSym(Symbol.QUOTE1),
-                    text="'",
-                    span=Span(2, 3),
+                    length=1,
                 ),
                 Token(
                     kind=KindSym(Symbol.QUOTE1),
-                    text="'",
-                    span=Span(3, 4),
+                    length=1,
                 ),
             ]
         )
@@ -1053,8 +932,7 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindSeq(Sequence.BACKTICK),
-                    text='`',
-                    span=Span(0, 1),
+                    length=1,
                 ),
             ]
         )
@@ -1064,8 +942,7 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindSeq(Sequence.BACKTICK),
-                    text='```',
-                    span=Span(0, 3),
+                    length=3,
                 )
             ]
         )
@@ -1075,18 +952,15 @@ class TestLexer(unittest.TestCase):
             [
                 Token(
                     kind=KindSeq(Sequence.BACKTICK),
-                    text='`',
-                    span=Span(0, 1),
+                    length=1,
                 ),
                 Token(
                     kind=KindSeq(Sequence.HYPHEN),
-                    text='-',
-                    span=Span(1, 2),
+                    length=1,
                 ),
                 Token(
                     kind=KindSeq(Sequence.PERIOD),
-                    text='.',
-                    span=Span(2, 3),
+                    length=1,
                 ),
             ]
         )
