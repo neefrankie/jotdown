@@ -180,15 +180,11 @@ class Attributes:
 class ParseError(Exception):
     pass
 
-class InvalidStateError(ParseError):
-    def __init__(self, pos: int):
-        self.pos = pos
-
 class AttributeParser:
     def __init__(self, text: str):
         self.text = text
-        self.pos = 0
         self.length = len(text)
+        self.pos = 0
 
     def parse(self) -> Iterator[AttributeElement]:
 
