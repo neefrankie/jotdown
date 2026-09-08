@@ -123,6 +123,10 @@ avant{lang=fr .blue}
 
 ### Paragraph
 
+### Display Math
+
+$$`E = K + U`
+
 ### Block quote
 
 > Some blockquoted
@@ -187,40 +191,25 @@ Definition list:
 
 ### Code Blocks
 
-```mylang
+A code block starts with a line of three or more consecutie backticks.
+
+```
 func say-hello(nm) {
     print("hello ${nm}!");
 }
 ```
 
+A code block may be optionally followed by a language specifier, but nothing else. The langauge specifier could have whitespace before or after it.
 
+``` ruby
+x = 5 * 6
+```
 
-### Display Math
+A code block is implicitly closed when its parent container is closed:
 
-$$`E = K + U`
-
-
-### Pipe Table
-
-| Name | Size | Color |
-| --- | --- | --- |
-| lime | small | green |
-| orange | medium | orange |
-| grapefruit | large | yellow or pink |
-
-You can alter the alignment of the cells using colons in the
-separator line, and also optionally add spaces to align the cells,
-e.g.:
-
-| Material | Quantity | Catch-phrase  |
-| -------- | -------: | :-----------: |
-| cotton   |       42 |   Practical!  |
-| wool     |       17 |     Warm!     |
-| silk     |        4 |    Smooth!    |
-
-### Thematic break
-
-* * * *
+> ```
+> code in a
+> block quote
 
 ### Raw Block
 
@@ -262,6 +251,28 @@ is equivalent to
 :::
 Watch out!
 :::
+
+### Pipe Table
+
+| Name | Size | Color |
+| --- | --- | --- |
+| lime | small | green |
+| orange | medium | orange |
+| grapefruit | large | yellow or pink |
+
+You can alter the alignment of the cells using colons in the
+separator line, and also optionally add spaces to align the cells,
+e.g.:
+
+| Material | Quantity | Catch-phrase  |
+| -------- | -------: | :-----------: |
+| cotton   |       42 |   Practical!  |
+| wool     |       17 |     Warm!     |
+| silk     |        4 |    Smooth!    |
+
+### Thematic break
+
+* * * *
 
 ### Reference Link Definition
 
