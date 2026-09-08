@@ -7,7 +7,7 @@ from .utils import (
     is_name_char
 )
 
-class AttributeElem(ABC):
+class AttributeElement(ABC):
 
     @abstractmethod
     def key(self) -> Optional[str]:
@@ -22,7 +22,7 @@ class AttributeElem(ABC):
         pass
 
 @dataclass
-class ClassAttribute(AttributeElem):
+class ClassAttribute(AttributeElement):
     name: str
 
     def key(self) -> str | None:
@@ -38,7 +38,7 @@ class ClassAttribute(AttributeElem):
         return f"ClassAttr({self.name!r})"
 
 @dataclass
-class IdAttribute(AttributeElem):
+class IdAttribute(AttributeElement):
     name: str
 
     def key(self) -> str | None:
@@ -54,7 +54,7 @@ class IdAttribute(AttributeElem):
         return f"IdAttr({self.name!r})"
 
 @dataclass
-class PairAttribute(AttributeElem):
+class PairAttribute(AttributeElement):
     key_: str
     value_: str
 
@@ -79,7 +79,7 @@ class PairAttribute(AttributeElem):
         return f"PairAttr({self.key_!r}, {self.value_!r})"
 
 @dataclass
-class CommentAttribute(AttributeElem):
+class CommentAttribute(AttributeElement):
     """Comment: %...%"""
     text: str
 
@@ -96,8 +96,8 @@ class CommentAttribute(AttributeElem):
         return f"CommentAttr({self.text!r})"
 
 class Attributes:
-    def __init__(self, elements: Optional[List[AttributeElem]] = None):
-        self._elems: List[AttributeElem] = elements or []
+    def __init__(self, elements: Optional[List[AttributeElement]] = None):
+        self._elems: List[AttributeElement] = elements or []
         self._idx: Dict[str, List[int]] = defaultdict(list)
         self._build_index()
 
@@ -108,7 +108,7 @@ class Attributes:
             if key is not None:
                 self._idx[key].append(i)
 
-    def push(self, elem: AttributeElem):
+    def push(self, elem: AttributeElement):
         self._elems.append(elem)
         key = elem.key()
         if key is not None:
