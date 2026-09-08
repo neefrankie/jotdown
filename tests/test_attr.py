@@ -46,6 +46,7 @@ class TestAttributes(unittest.TestCase):
 
         self.assertEqual(attrs.raw_text(), '{.foo .bar #baz src="https://placehold.co/600x400"}')
 
+class TestAttrbuteParser(unittest.TestCase):
     def test_read_identifier(self):
         cases = [
             ('id', 'id'),
@@ -92,56 +93,112 @@ class TestAttributes(unittest.TestCase):
 
     def test_parse_class(self):
         cases = [
-            ('.class1', {'class': ['class1']}),
-            ('.class2 .class1', {'class': ['class2']})
+            ('.class1', 'class1'),
+            ('.class2 .class1', 'class2')
         ]
         for (text, expected) in cases:
             p = AttributeParser(text)
-            p._parse_class()
+            actual = p._parse_class()
 
-            for key, expected_values in expected.items():
-                actual_values = p.attrs.get_values(key)
-                self.assertEqual(
-                    actual_values, 
-                    expected_values,
-                    f"{text}: key='{key}' expected {expected_values}, got {actual_values}"
-                )
+            self.assertEqual(actual.value(), expected)
 
     def test_parse_id(self):
         cases = [
-            ('#foo', {'id': ['foo']}),
+            ('#foo', 'foo'),
         ]
         for (text, expected) in cases:
             p = AttributeParser(text)
-            p._parse_id()
+            actual = p._parse_id()
 
-            for key, expected_values in expected.items():
-                actual_values = p.attrs.get_values(key)
-                self.assertEqual(
-                    actual_values, 
-                    expected_values,
-                    f"{text}: key='{key}' expected {expected_values}, got {actual_values}"
-                )
+            self.assertEqual(actual.value(), expected)
 
     def test_parse_comment(self):
         cases = [
-            ('% This is comment %', [' This is comment ']),
+            ('% This is comment %', ' This is comment '),
         ]
         for (text, expected) in cases:
             p = AttributeParser(text)
-            p._parse_comment()
+            actual = p._parse_comment()
 
-            actual = [
-                elem.value() 
-                for elem in p.attrs 
-                if isinstance(elem, CommentAttribute)
-            ]
+            self.assertEqual(actual.value(), expected)
 
-            self.assertEqual(actual, expected)
-                
+    def test_parse_pair(self):
+        cases = [
+            ('key="value"', 'value'),
+            ('key="foo\\"bar"', 'foo\\"bar')
+        ]
+        for (text, expected) in cases:
+            with self.subTest(text):
+                p = AttributeParser(text)
+                actual = p._parse_pair()
+                self.assertEqual(actual.value(), expected)
 
-        
-        
+    def test_parse_one_block(self):
+        cases = [
+            ('{.class1 .class2 #id}', ['class1', 'class2', 'id']),
+            ('{key=value}', ['value']),
+            ('{key="value"}', ['value']),
+            ('{key="foo\\"bar"}', ['foo\\"bar']),
+            ('{#id % comment %}', ['id', ' comment '])
+        ]
+        for (text, expected) in cases:
+            with self.subTest(text):
+                p = AttributeParser(text)
+                actual = [
+                    elem.value()
+                    for elem in p._parse_one_block()
+                ]
+                self.assertEqual(actual, expected)
+
+    def test_parse(self):
+        cases = [
+            ('{% multi-line %}{.class}', [' multi-line ', 'class']),
+            ('{lang=fr}{.blue}', ['fr', 'blue']),
+            ('{#water}\n{.important .large}', ['water', 'important', 'large']),
+            ('{#foo .bar key=value % comment %}', ['foo', 'bar', 'value', ' comment '])
+        ]
+        for (text, expected) in cases:
+            with self.subTest(text):
+                p = AttributeParser(text)
+                actual = [
+                    elem.value()
+                    for elem in p.parse()
+                ]
+                self.assertEqual(actual, expected)
+
+    def test_finish(self):
+        cases = [
+            # 基本
+            ('{.class1 .class2 #id}', {'class': ['class1', 'class2'], 'id': ['id']}),
+            ('{key=value}', {'key': ['value']}),
+            ('{key="value"}', {'key': ['value']}),
+            ('{key="foo\\"bar"}', {'key': ['foo\\"bar']}),
+            
+            # 注释
+            ('{#id % comment %}', {'id': ['id']}),
+            ('{% multi-line %}{.class}', {'class': ['class']}),
+            
+            # 堆叠
+            ('{lang=fr}{.blue}', {'lang': ['fr'], 'class': ['blue']}),
+            
+            # 多行
+            ('{#water}\n{.important .large}', {'id': ['water'], 'class': ['important', 'large']}),
+            
+            # 混合
+            ('{#foo .bar key=value % comment %}', {'id': ['foo'], 'class': ['bar'], 'key': ['value']}),
+        ]
+        for text, expected in cases:
+            with self.subTest(text):
+                p = AttributeParser(text)
+                attrs = p.finish()
+
+                for key, expected_values in expected.items():
+                    actual_values = attrs.get_values(key)
+                    self.assertEqual(
+                        actual_values,
+                        expected_values
+                    )
+
 
 
 if __name__ == '__main__':
