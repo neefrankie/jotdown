@@ -1,3 +1,4 @@
+from abc import ABC
 from dataclasses import dataclass
 from enum import Enum, StrEnum, auto
 from typing import Callable, Optional
@@ -39,46 +40,46 @@ class Sequence(StrEnum):
     HYPHEN = '-'
     PERIOD = '.'
 
-class TokenKind:
-    """基类，所有 Token 类型继承自它"""
+
+@dataclass
+class Token(ABC):
+    length: int
+
+@dataclass
+class TokenText(Token):
     pass
 
 @dataclass
-class KindText(TokenKind): pass
+class TokenNewline(Token):
+    pass
 
 @dataclass
-class KindNewline(TokenKind): pass
+class TokenNbsp(Token):
+    pass
 
 @dataclass
-class KindNbsp(TokenKind): pass
+class TokenHardbreak(Token):
+    pass
 
 @dataclass
-class KindHardbreak(TokenKind): pass
+class TokenEscape(Token):
+    pass
 
 @dataclass
-class KindEscape(TokenKind): pass
-
-# 带额外信息的类型
-@dataclass
-class KindOpen(TokenKind):
-    delimiter: 'Delimiter'
+class TokenOpen(Token):
+    delimiter: Delimiter
 
 @dataclass
-class KindClose(TokenKind):
-    delimiter: 'Delimiter'
+class TokenClose(Token):
+    delimiter: Delimiter
 
 @dataclass
-class KindSym(TokenKind):
-    symbol: 'Symbol'
+class TokenSym(Token):
+    symbol: Symbol
 
 @dataclass
-class KindSeq(TokenKind):
-    sequence: 'Sequence'
-
-@dataclass
-class Token:
-    kind: TokenKind
-    length: int
+class TokenSeq(Token):
+    sequence: Sequence
 
 class Lexer:
 
@@ -117,66 +118,201 @@ class Lexer:
         # When such cases occur?
         # \a will produce KindText for \, and KindText for a
         # \*a will produce KindEscape for \, KindText for * and KindText for a.
-        if isinstance(current.kind, KindText):
+        if isinstance(current, TokenText):
             while True:
                 self._next = self._token()
-                if self._next is None or not isinstance(self._next.kind, KindText):
+                if self._next is None or not isinstance(self._next, TokenText):
                     break
                 current.length += self._next.length
 
         return current
 
-    
-
     def _token(self) -> Optional[Token]:
-        start = self._pos
+            start = self._pos
+    
+            # 当 Lexer 遇到一个反斜杠 \ 时，它会设置 self.escape = true，表示下一个字符需要被特殊对待。
+            if self._escape:
+                return self._escaped_token(start)
+    
+            self._eat_while(lambda c: c not in self._SPECIAL_CHARS)
+            # If eat_while actually moved pos...
+            if start < self._pos:
+                return TokenText(
+                    length=self._pos-start,
+                )
+    
+            return self._special_token(start)
 
-        # 当 Lexer 遇到一个反斜杠 \ 时，它会设置 self.escape = true，表示下一个字符需要被特殊对待。
-        if self._escape:
-            self._escape = False
-            ch = self._eat_char()
-            if ch is None:
-                return None
-            kind = self._handle_escaped(ch)
-            return Token(
-                kind=kind,
-                length=self._pos - start,
-            )
-
-        self._eat_while(lambda c: c not in self._SPECIAL_CHARS)
-        # If eat_while actually moved pos...
-        if start < self._pos:
-            return Token(
-                kind=KindText(),
-                length=self._pos-start,
-            )
-
-        ch = self._eat_char()
+    def _escaped_token(self, start: int) -> Optional[Token]:
+        self._escape = False
+        ch = self._eat_char() # char after \
         if ch is None:
             return None
-        kind = self._handle_special(ch)
-        return Token(
-            kind=kind,
-            length=self._pos - start,
-        )
-
-    def _handle_escaped(self, ch: str) -> TokenKind:
-        """
-        Inspect char after \
-        """
+        
         match ch:
             case '\n': # \\n
-                return KindHardbreak()
+                return TokenHardbreak(self._pos - start)
             case '\t' | ' ':
                 # \'\t' | ' '
                 if self._is_next_non_space_newline():
                     while self._eat_char() != '\n':
                         pass
-                    return KindHardbreak()
+                    return TokenHardbreak(self._pos - start)
                 else:
-                    return KindNbsp()
+                    return TokenNbsp(self._pos - start)
             case _:
-                return KindText()
+                return TokenText(self._pos - start)
+
+    def _special_token(self, start: int) -> Optional[Token]:
+
+        ch = self._eat_char()
+        if ch is None:
+            return None
+
+        match ch:
+            case '\n':
+                return TokenNewline(self._pos - start)
+
+            case '\\':
+                # \a -> TokenText(1), TokenText(1)
+                # \* -> TokenEscape(1), TokenText(1)
+                next_ch = self._peek_char()
+                if next_ch is not None and (is_ascii_whitespace(next_ch) or is_ascii_punctuation(next_ch)):
+                    self._escape = not self.verbatim
+                    return TokenEscape(self._pos - start)
+                else:
+                    return TokenText(self._pos - start)
+
+            case '[':
+                return TokenOpen(self._pos - start, Delimiter.BRACKET)
+
+            case ']':
+                return TokenClose(self._pos - start, Delimiter.BRACKET)
+            
+            case '(':
+                return TokenOpen(self._pos - start, Delimiter.PAREN)
+            
+            case ')':
+                return TokenClose(self._pos - start, Delimiter.PAREN)
+
+            case '{':
+                brace_mapping = {
+                    '*': Delimiter.BRACE_ASTERISK, # strong
+                    '^': Delimiter.BRACE_CARET, # superscript
+                    '=': Delimiter.BRACE_EQUAL, # highlighed
+                    '-': Delimiter.BRACE_HYPHEN, # delete
+                    '+': Delimiter.BRACE_PLUS, # insert
+                    '~': Delimiter.BRACE_TILDE, # subscript
+                    '_': Delimiter.BRACE_UNDERSCORE, # emphasis
+                    '\'': Delimiter.BRACE_QUOTE1,
+                    '"': Delimiter.BRACE_QUOTE2,
+                }
+                next_ch = self._peek_char()
+                if next_ch and next_ch in brace_mapping:
+                    kind = brace_mapping[next_ch]
+                    self._eat_char() # move pos after next_ch
+                    return TokenOpen(self._pos - start, delimiter=kind)
+                
+                return TokenOpen(self._pos - start, delimiter=Delimiter.BRACE)
+    
+            case '}':
+                return TokenClose(self._pos - start, Delimiter.BRACE)
+    
+            case '*':
+                if self._eat_close_brace():
+                    return TokenClose(self._pos - start, Delimiter.BRACE_ASTERISK)
+                else:
+                    return TokenSym(self._pos - start, Symbol.ASTERISK)
+    
+            case '^':
+                if self._eat_close_brace():
+                    return TokenClose(self._pos - start, Delimiter.BRACE_CARET)
+                else:
+                    return TokenSym(self._pos - start, Symbol.CARET)
+    
+            case '=':
+                # If it is =}, it is highlighted; otherwise plain text.
+                if self._eat_close_brace():
+                    return TokenClose(self._pos - start, Delimiter.BRACE_EQUAL)
+                else:
+                    return TokenText(self._pos - start)
+    
+            case '+':
+                # If it is +}, this is insert; otherwise plain text.
+                if self._eat_close_brace():
+                    return TokenClose(self._pos - start, Delimiter.BRACE_PLUS)
+                else:
+                    return TokenText(self._pos - start, )
+
+            case '~':
+                if self._eat_close_brace():
+                    return TokenClose(
+                        self._pos - start,
+                        Delimiter.BRACE_TILDE
+                    )
+                else:
+                    return TokenSym(
+                        self._pos - start,
+                        Symbol.TILDE
+                    )
+
+            case '_':
+                if self._eat_close_brace():
+                    return TokenClose(self._pos - start, Delimiter.BRACE_UNDERSCORE)
+                else:
+                    return TokenSym(self._pos - start, Symbol.UNDERSCORE)
+
+            case '\'':
+                if self._eat_close_brace():
+                    return TokenClose(self._pos - start, Delimiter.BRACE_QUOTE1)
+                else:
+                    return TokenSym(self._pos - start, Symbol.QUOTE1)
+
+            case '"':
+                if self._eat_close_brace():
+                    return TokenClose(self._pos - start, Delimiter.BRACE_QUOTE2)
+                else:
+                    return TokenSym(self._pos - start, Symbol.QUOTE2)
+
+            case '-':
+                # -}
+                if self._peek_char() == '}':
+                    self._eat_char()
+                    return TokenClose(self._pos - start, Delimiter.BRACE_HYPHEN)
+                else:
+                    # --}
+                    while self._peek_char() == '-' and self._peek_char(1) != '}': # stop at -} or not -
+                        self._eat_char()
+
+                    return TokenSeq(self._pos - start, Sequence.HYPHEN)
+
+            case '!':
+                # ![
+                if self._peek_char() == '[':
+                    self._eat_char()
+                    return TokenSym(self._pos - start, Symbol.EXCLAIM_BRACKET)
+                else:
+                    return TokenText(self._pos - start, )
+
+            case '<':
+                return TokenSym(self._pos - start, Symbol.LT)
+
+            case '|':
+                return TokenSym(self._pos - start, Symbol.PIPE)
+
+            case ':':
+                return TokenSym(self._pos - start, Symbol.COLON)
+
+            case '`':
+                self._eat_seq(Sequence.BACKTICK)
+                return TokenSeq(self._pos - start, Sequence.BACKTICK)
+
+            case '.':
+                self._eat_seq(Sequence.PERIOD)
+                return TokenSeq(self._pos - start, Sequence.PERIOD)
+
+            case _:
+                return TokenText(self._pos - start, )
 
     def _is_next_non_space_newline(self) -> bool:
         """检查从当前位置到下一个非空格/制表符的字符是否是换行符"""
@@ -185,142 +321,6 @@ class Lexer:
             if ch not in (' ', '\t'):
                 return ch == '\n'
         return False  # All space after _pos
-
-    def _handle_special(self, ch: str) -> TokenKind:
-        match ch:
-            case '\n':
-                return KindNewline()
-
-            case '\\':
-                next_ch = self._peek_char()
-                if next_ch is not None and (is_ascii_whitespace(next_ch) or is_ascii_punctuation(next_ch)):
-                    self._escape = not self.verbatim
-                    return KindEscape()
-                else:
-                    return KindText()
-
-            case '[':
-                return KindOpen(Delimiter.BRACKET)
-
-            case ']':
-                return KindClose(Delimiter.BRACKET)
-            
-            case '(':
-                return KindOpen(Delimiter.PAREN)
-            
-            case ')':
-                return KindClose(Delimiter.PAREN)
-
-            case '{':
-                brace_mapping = {
-                    '*': KindOpen(Delimiter.BRACE_ASTERISK), # strong
-                    '^': KindOpen(Delimiter.BRACE_CARET), # superscript
-                    '=': KindOpen(Delimiter.BRACE_EQUAL), # highlighed
-                    '-': KindOpen(Delimiter.BRACE_HYPHEN), # delete
-                    '+': KindOpen(Delimiter.BRACE_PLUS), # insert
-                    '~': KindOpen(Delimiter.BRACE_TILDE), # subscript
-                    '_': KindOpen(Delimiter.BRACE_UNDERSCORE), # emphasis
-                    '\'': KindOpen(Delimiter.BRACE_QUOTE1),
-                    '"': KindOpen(Delimiter.BRACE_QUOTE2),
-                }
-                next_ch = self._peek_char()
-                if next_ch and next_ch in brace_mapping:
-                    kind = brace_mapping[next_ch]
-                    self._eat_char() # move pos after next_ch
-                    return kind
-                
-                return KindOpen(Delimiter.BRACE)
-    
-            case '}':
-                return KindClose(Delimiter.BRACE)
-    
-            case '*':
-                if self._eat_close_brace():
-                    return KindClose(Delimiter.BRACE_ASTERISK)
-                else:
-                    return KindSym(Symbol.ASTERISK)
-    
-            case '^':
-                if self._eat_close_brace():
-                    return KindClose(Delimiter.BRACE_CARET)
-                else:
-                    return KindSym(Symbol.CARET)
-    
-            case '=':
-                # If it is =}, it is highlighted; otherwise plain text.
-                if self._eat_close_brace():
-                    return KindClose(Delimiter.BRACE_EQUAL)
-                else:
-                    return KindText()
-    
-            case '+':
-                # If it is +}, this is insert; otherwise plain text.
-                if self._eat_close_brace():
-                    return KindClose(Delimiter.BRACE_PLUS)
-                else:
-                    return KindText()
-
-            case '~':
-                if self._eat_close_brace():
-                    return KindClose(Delimiter.BRACE_TILDE)
-                else:
-                    return KindSym(Symbol.TILDE)
-
-            case '_':
-                if self._eat_close_brace():
-                    return KindClose(Delimiter.BRACE_UNDERSCORE)
-                else:
-                    return KindSym(Symbol.UNDERSCORE)
-
-            case '\'':
-                if self._eat_close_brace():
-                    return KindClose(Delimiter.BRACE_QUOTE1)
-                else:
-                    return KindSym(Symbol.QUOTE1)
-
-            case '"':
-                if self._eat_close_brace():
-                    return KindClose(Delimiter.BRACE_QUOTE2)
-                else:
-                    return KindSym(Symbol.QUOTE2)
-
-            case '-':
-                # -}
-                if self._peek_char() == '}':
-                    self._eat_char()
-                    return KindClose(Delimiter.BRACE_HYPHEN)
-                else:
-                    # --}
-                    while self._peek_char() == '-' and self._peek_char(1) != '}': # stop at -} or not -
-                        self._eat_char()
-
-                    return KindSeq(Sequence.HYPHEN)
-
-            case '!':
-                # ![
-                if self._peek_char() == '[':
-                    self._eat_char()
-                    return KindSym(Symbol.EXCLAIM_BRACKET)
-                else:
-                    return KindText()
-
-            case '<':
-                return KindSym(Symbol.LT)
-
-            case '|':
-                return KindSym(Symbol.PIPE)
-
-            case ':':
-                return KindSym(Symbol.COLON)
-
-            case '`':
-                return self._eat_seq(Sequence.BACKTICK)
-
-            case '.':
-                return self._eat_seq(Sequence.PERIOD)
-
-            case _:
-                return KindText()
 
     def _peek_char(self, n: int = 0) -> Optional[str]:
         idx = self._pos + n
@@ -345,9 +345,8 @@ class Lexer:
             else:
                 break
 
-    def _eat_seq(self, s: Sequence) -> TokenKind:
+    def _eat_seq(self, s: Sequence):
         self._eat_while(lambda c: c == s.value) # stops after ```
-        return KindSeq(s)
 
     def _eat_close_brace(self):
         if self._peek_char() == '}':
