@@ -89,17 +89,40 @@ class Lexer:
         self._src: str = src
         self._pos: int = 0
         self._escape: bool = False
+        # _next plays two role:
+        # 1. cache next token when peeking
+        # 2. cache token when concatenating consecutive 
+        # text tokens.
+        # This avoids repeated parsing of the same token.
         self._next: Optional[Token] = None
         self.verbatim: bool = False
 
     def peek(self) -> Optional[Token]:
+        """
+        Peeking the next token.
+        
+        This method is not really peeking. Strictly speaking,
+        peek behavior should not move curent cursor.
+        This method, however, does move the cursor.
+
+        What's more, the action of peeking next token
+        is usually the job of parser rathan than lexer.
+        A lexer usually only peeks the next char.
+
+        Hence the ahead method: you lost the starting postion
+        of the token being 'peeked' since the cursor has
+        already been moved forward by peeking.
+        The ahead method backtracing the starting position
+        of the token being 'peeked'. 
+        """
         if self._next is None:
             self._next = self._token()
         return self._next
 
     def ahead(self) -> str:
         """
-        The slice from the start of of token being parsed to the end of the string.
+        Backtracing the starting position of a peeked token
+        after peeking moved forward current cursor.
         """
         l = self._next.length if self._next else 0
         start = self._pos - l
