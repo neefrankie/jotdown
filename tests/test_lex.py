@@ -3,17 +3,17 @@ import unittest
 from jotdown.lex import (
     Lexer,
     Delimiter,
-    Symbol,
-    Sequence,
-    TokenText,
-    TokenNewline,
+    SymbolKind,
+    SeqKind,
+    TextToken,
+    NewlineToken,
     TokenNbsp,
     TokenHardbreak,
-    TokenEscape,
-    TokenOpen,
-    TokenClose,
-    TokenSym,
-    TokenSeq
+    EscapeToken,
+    OpenToken,
+    CloseToken,
+    SymToken,
+    SequenceToken
 )
 
 class TestLexer(unittest.TestCase):
@@ -127,49 +127,49 @@ class TestLexer(unittest.TestCase):
 
     def test_special_token(self):
         cases = [
-            ('\n', TokenNewline(1)),
-            ('\\ ', TokenEscape(1)),
-            ('\\', TokenText(1)),
-            ('[', TokenOpen(1,Delimiter.BRACKET)),
-            (']', TokenClose(1, Delimiter.BRACKET)),
-            ('(', TokenOpen(1, Delimiter.PAREN)),
-            (')', TokenClose(1, Delimiter.PAREN)),
-            ('{*', TokenOpen(2, Delimiter.BRACE_ASTERISK)),
-            ('{^', TokenOpen(2, Delimiter.BRACE_CARET)),
-            ('{=', TokenOpen(2, Delimiter.BRACE_EQUAL)),
-            ('{-', TokenOpen(2, Delimiter.BRACE_HYPHEN)),
-            ('{+', TokenOpen(2, Delimiter.BRACE_PLUS)),
-            ('{~', TokenOpen(2, Delimiter.BRACE_TILDE)),
-            ('{_', TokenOpen(2, Delimiter.BRACE_UNDERSCORE)),
-            ('{\'', TokenOpen(2, Delimiter.BRACE_QUOTE1)),
-            ('{"', TokenOpen(2, Delimiter.BRACE_QUOTE2)),
-            ('{', TokenOpen(1, Delimiter.BRACE)),
-            ('}', TokenClose(1, Delimiter.BRACE)),
-            ('*}', TokenClose(2, Delimiter.BRACE_ASTERISK)),
-            ('*', TokenSym(1, Symbol.ASTERISK)),
-            ('^}', TokenClose(2, Delimiter.BRACE_CARET)),
-            ('^', TokenSym(1, Symbol.CARET)),
-            ('=}', TokenClose(2, Delimiter.BRACE_EQUAL)),
-            ('=', TokenText(1)),
-            ('+}', TokenClose(2, Delimiter.BRACE_PLUS)),
-            ('+', TokenText(1)),
-            ('~}', TokenClose(2, Delimiter.BRACE_TILDE)),
-            ('~', TokenSym(1, Symbol.TILDE)),
-            ('_}', TokenClose(2, Delimiter.BRACE_UNDERSCORE)),
-            ('_', TokenSym(1, Symbol.UNDERSCORE)),
-            ('\'}', TokenClose(2, Delimiter.BRACE_QUOTE1)),
-            ('\'', TokenSym(1, Symbol.QUOTE1)),
-            ('"}', TokenClose(2, Delimiter.BRACE_QUOTE2)),
-            ('"', TokenSym(1, Symbol.QUOTE2)),
-            ('-}', TokenClose(2, Delimiter.BRACE_HYPHEN)),
-            ('---', TokenSeq(3, Sequence.HYPHEN)),
-            ('![', TokenSym(2,Symbol.EXCLAIM_BRACKET)),
-            ('!', TokenText(1)),
-            ('<', TokenSym(1, Symbol.LT)),
-            ('|', TokenSym(1, Symbol.PIPE)),
-            (':', TokenSym(1, Symbol.COLON)),
-            ('```', TokenSeq(3, Sequence.BACKTICK)),
-            ('...', TokenSeq(3, Sequence.PERIOD)),
+            ('\n', NewlineToken(1)),
+            ('\\ ', EscapeToken(1)),
+            ('\\', TextToken(1)),
+            ('[', OpenToken(1,Delimiter.BRACKET)),
+            (']', CloseToken(1, Delimiter.BRACKET)),
+            ('(', OpenToken(1, Delimiter.PAREN)),
+            (')', CloseToken(1, Delimiter.PAREN)),
+            ('{*', OpenToken(2, Delimiter.BRACE_ASTERISK)),
+            ('{^', OpenToken(2, Delimiter.BRACE_CARET)),
+            ('{=', OpenToken(2, Delimiter.BRACE_EQUAL)),
+            ('{-', OpenToken(2, Delimiter.BRACE_HYPHEN)),
+            ('{+', OpenToken(2, Delimiter.BRACE_PLUS)),
+            ('{~', OpenToken(2, Delimiter.BRACE_TILDE)),
+            ('{_', OpenToken(2, Delimiter.BRACE_UNDERSCORE)),
+            ('{\'', OpenToken(2, Delimiter.BRACE_QUOTE1)),
+            ('{"', OpenToken(2, Delimiter.BRACE_QUOTE2)),
+            ('{', OpenToken(1, Delimiter.BRACE)),
+            ('}', CloseToken(1, Delimiter.BRACE)),
+            ('*}', CloseToken(2, Delimiter.BRACE_ASTERISK)),
+            ('*', SymToken(1, SymbolKind.ASTERISK)),
+            ('^}', CloseToken(2, Delimiter.BRACE_CARET)),
+            ('^', SymToken(1, SymbolKind.CARET)),
+            ('=}', CloseToken(2, Delimiter.BRACE_EQUAL)),
+            ('=', TextToken(1)),
+            ('+}', CloseToken(2, Delimiter.BRACE_PLUS)),
+            ('+', TextToken(1)),
+            ('~}', CloseToken(2, Delimiter.BRACE_TILDE)),
+            ('~', SymToken(1, SymbolKind.TILDE)),
+            ('_}', CloseToken(2, Delimiter.BRACE_UNDERSCORE)),
+            ('_', SymToken(1, SymbolKind.UNDERSCORE)),
+            ('\'}', CloseToken(2, Delimiter.BRACE_QUOTE1)),
+            ('\'', SymToken(1, SymbolKind.QUOTE1)),
+            ('"}', CloseToken(2, Delimiter.BRACE_QUOTE2)),
+            ('"', SymToken(1, SymbolKind.QUOTE2)),
+            ('-}', CloseToken(2, Delimiter.BRACE_HYPHEN)),
+            ('---', SequenceToken(3, SeqKind.HYPHEN)),
+            ('![', SymToken(2,SymbolKind.EXCLAIM_BRACKET)),
+            ('!', TextToken(1)),
+            ('<', SymToken(1, SymbolKind.LT)),
+            ('|', SymToken(1, SymbolKind.PIPE)),
+            (':', SymToken(1, SymbolKind.COLON)),
+            ('```', SequenceToken(3, SeqKind.BACKTICK)),
+            ('...', SequenceToken(3, SeqKind.PERIOD)),
         ]
         for text, expected in cases:
             with self.subTest(text):
@@ -180,23 +180,23 @@ class TestLexer(unittest.TestCase):
     def test_token_stops(self):
         text = '*hello* _world_'
         expected = [
-            TokenSym(
-                symbol=Symbol.ASTERISK,
+            SymToken(
+                symbol=SymbolKind.ASTERISK,
                 length=1
             ),
-            TokenText(5),
-            TokenSym(
-                symbol=Symbol.ASTERISK,
+            TextToken(5),
+            SymToken(
+                symbol=SymbolKind.ASTERISK,
                 length=1,
             ),
-            TokenText(1),
-            TokenSym(
-                symbol=Symbol.UNDERSCORE,
+            TextToken(1),
+            SymToken(
+                symbol=SymbolKind.UNDERSCORE,
                 length=1,
             ),
-            TokenText(5),
-            TokenSym(
-                symbol=Symbol.UNDERSCORE,
+            TextToken(5),
+            SymToken(
+                symbol=SymbolKind.UNDERSCORE,
                 length=1,
             ),
             None,
@@ -213,54 +213,54 @@ class TestLexer(unittest.TestCase):
             (
                 'hello world',
                 [
-                    TokenText(len('hello world'))
+                    TextToken(len('hello world'))
                 ]
             ),
             (
                 'hello\n',
                 [
-                    TokenText(length=len('hello')),
-                    TokenNewline(1)
+                    TextToken(length=len('hello')),
+                    NewlineToken(1)
                 ]
             ),
             (
                 '\\ ',
                 [
-                    TokenEscape(1),
+                    EscapeToken(1),
                     TokenNbsp(1)
                 ]
             ),
             (
                 '\\\n',
                 [
-                    TokenEscape(1),
+                    EscapeToken(1),
                     TokenHardbreak(1)
                 ]
             ),
             (
                 '\\a',
                 [
-                    TokenText(1),
-                    TokenText(1),
+                    TextToken(1),
+                    TextToken(1),
                 ]
             ),
             (
                 '\\*a',
                 [
-                    TokenEscape(1),
-                    TokenText(1),
-                    TokenText(1),
+                    EscapeToken(1),
+                    TextToken(1),
+                    TextToken(1),
                 ]
             ),
             (
                 '[Link]',
                 [
-                    TokenOpen(
+                    OpenToken(
                         delimiter=Delimiter.BRACKET, 
                         length=len('['), 
                     ),
-                    TokenText(len('Link')),
-                    TokenClose(
+                    TextToken(len('Link')),
+                    CloseToken(
                         delimiter=Delimiter.BRACKET,
                         length=len(']'),
                     )
@@ -269,12 +269,12 @@ class TestLexer(unittest.TestCase):
             (
                 '(url)',
                 [
-                    TokenOpen(
+                    OpenToken(
                         delimiter=Delimiter.PAREN, 
                         length=len('('), 
                     ),
-                    TokenText(len('url')),
-                    TokenClose(
+                    TextToken(len('url')),
+                    CloseToken(
                         delimiter=Delimiter.PAREN,
                         length=len(')'),
                     )
@@ -283,12 +283,12 @@ class TestLexer(unittest.TestCase):
             (
                 '{*strong*}',
                 [
-                    TokenOpen(
+                    OpenToken(
                         delimiter=Delimiter.BRACE_ASTERISK, 
                         length=len('{*'), 
                     ),
-                    TokenText(len('strong')),
-                    TokenClose(
+                    TextToken(len('strong')),
+                    CloseToken(
                         delimiter=Delimiter.BRACE_ASTERISK,
                         length=len('*}'),
                     )
@@ -297,12 +297,12 @@ class TestLexer(unittest.TestCase):
             (
                 '{^TM^}',
                 [
-                    TokenOpen(
+                    OpenToken(
                         delimiter=Delimiter.BRACE_CARET, 
                         length=len('{^'), 
                     ),
-                    TokenText(len('TM')),
-                    TokenClose(
+                    TextToken(len('TM')),
+                    CloseToken(
                         delimiter=Delimiter.BRACE_CARET,
                         length=len('^}'),
                     )
@@ -311,15 +311,15 @@ class TestLexer(unittest.TestCase):
             (
                 '{=highlighted=}',
                 [
-                    TokenOpen(
+                    OpenToken(
                         delimiter=Delimiter.BRACE_EQUAL, 
                         length=len('{='), 
                     ),
-                    TokenText(
+                    TextToken(
                         
                         length=len('highlighted'),
                     ),
-                    TokenClose(
+                    CloseToken(
                         delimiter=Delimiter.BRACE_EQUAL,
                         length=len('=}'),
                     )
@@ -328,15 +328,15 @@ class TestLexer(unittest.TestCase):
             (
                 '{-delete-}',
                 [
-                    TokenOpen(
+                    OpenToken(
                         delimiter=Delimiter.BRACE_HYPHEN, 
                         length=len('{-'), 
                     ),
-                    TokenText(
+                    TextToken(
                         
                         length=len('delete'),
                     ),
-                    TokenClose(
+                    CloseToken(
                         delimiter=Delimiter.BRACE_HYPHEN,
                         length=len('-}'),
                     )
@@ -345,15 +345,15 @@ class TestLexer(unittest.TestCase):
             (
                 '{+insert+}',
                 [
-                    TokenOpen(
+                    OpenToken(
                         delimiter=Delimiter.BRACE_PLUS, 
                         length=len('{+'), 
                     ),
-                    TokenText(
+                    TextToken(
                         
                         length=len('insert'),
                     ),
-                    TokenClose(
+                    CloseToken(
                         delimiter=Delimiter.BRACE_PLUS,
                         length=len('+}'),
                     )
@@ -362,15 +362,15 @@ class TestLexer(unittest.TestCase):
             (
                 '{~2~}',
                 [
-                    TokenOpen(
+                    OpenToken(
                         delimiter=Delimiter.BRACE_TILDE, 
                         length=len('{~'), 
                     ),
-                    TokenText(
+                    TextToken(
                         
                         length=len('2'),
                     ),
-                    TokenClose(
+                    CloseToken(
                         delimiter=Delimiter.BRACE_TILDE,
                         length=len('~}'),
                     )
@@ -379,15 +379,15 @@ class TestLexer(unittest.TestCase):
             (
                 '{_emphasis_}',
                 [
-                    TokenOpen(
+                    OpenToken(
                         delimiter=Delimiter.BRACE_UNDERSCORE, 
                         length=len('{_'),
                     ),
-                    TokenText(
+                    TextToken(
                         
                         length=len('emphasis'),
                     ),
-                    TokenClose(
+                    CloseToken(
                         delimiter=Delimiter.BRACE_UNDERSCORE,
                         length=len('_}'),
                     )
@@ -396,15 +396,15 @@ class TestLexer(unittest.TestCase):
             (
                 '{\'quote\'}',
                 [
-                    TokenOpen(
+                    OpenToken(
                         delimiter=Delimiter.BRACE_QUOTE1, 
                         length=len('{\''), 
                     ),
-                    TokenText(
+                    TextToken(
                         
                         length=len('quote'),
                     ),
-                    TokenClose(
+                    CloseToken(
                         delimiter=Delimiter.BRACE_QUOTE1,
                         length=len('\'}'),
                     )
@@ -413,15 +413,15 @@ class TestLexer(unittest.TestCase):
             (
                 '{"quote"}',
                 [
-                    TokenOpen(
+                    OpenToken(
                         delimiter=Delimiter.BRACE_QUOTE2, 
                         length=len('{"'), 
                     ),
-                    TokenText(
+                    TextToken(
                         
                         length=len('quote'),
                     ),
-                    TokenClose(
+                    CloseToken(
                         delimiter=Delimiter.BRACE_QUOTE2,
                         length=len('"}'),
                     )
@@ -430,15 +430,15 @@ class TestLexer(unittest.TestCase):
             (
                 '{#foo}',
                 [
-                    TokenOpen(
+                    OpenToken(
                         delimiter=Delimiter.BRACE, 
                         length=len('{'), 
                     ),
-                    TokenText(
+                    TextToken(
                         
                         length=len('#foo'),
                     ),
-                    TokenClose(
+                    CloseToken(
                         delimiter=Delimiter.BRACE,
                         length=len('}'),
                     )
@@ -447,15 +447,15 @@ class TestLexer(unittest.TestCase):
             (
                 '![cat]',
                 [
-                    TokenSym(
-                        symbol=Symbol.EXCLAIM_BRACKET, 
+                    SymToken(
+                        symbol=SymbolKind.EXCLAIM_BRACKET, 
                         length=len('!['), 
                     ),
-                    TokenText(
+                    TextToken(
                         
                         length=len('cat'),
                     ),
-                    TokenClose(
+                    CloseToken(
                         delimiter=Delimiter.BRACKET,
                         length=len(']'),
                     )
@@ -464,8 +464,8 @@ class TestLexer(unittest.TestCase):
             (
                 '<',
                 [
-                    TokenSym(
-                        symbol=Symbol.LT, 
+                    SymToken(
+                        symbol=SymbolKind.LT, 
                         length=len('<'), 
                     ),
                 ]
@@ -473,16 +473,16 @@ class TestLexer(unittest.TestCase):
             (
                 '|Header|',
                 [
-                    TokenSym(
-                        symbol=Symbol.PIPE, 
+                    SymToken(
+                        symbol=SymbolKind.PIPE, 
                         length=len('|'), 
                     ),
-                    TokenText(
+                    TextToken(
                         
                         length=len('Header'),
                     ),
-                    TokenSym(
-                        symbol=Symbol.PIPE,
+                    SymToken(
+                        symbol=SymbolKind.PIPE,
                         length=len('|'),
                     )
                 ]
@@ -490,16 +490,16 @@ class TestLexer(unittest.TestCase):
             (
                 ':smiley:',
                 [
-                    TokenSym(
-                        symbol=Symbol.COLON, 
+                    SymToken(
+                        symbol=SymbolKind.COLON, 
                         length=len(':'), 
                     ),
-                    TokenText(
+                    TextToken(
                         
                         length=len('smiley'),
                     ),
-                    TokenSym(
-                        symbol=Symbol.COLON,
+                    SymToken(
+                        symbol=SymbolKind.COLON,
                         length=len(':'),
                     )
                 ]
@@ -507,16 +507,16 @@ class TestLexer(unittest.TestCase):
             (
                 '``x``',
                 [
-                    TokenSeq(
-                        sequence=Sequence.BACKTICK, 
+                    SequenceToken(
+                        sequence=SeqKind.BACKTICK, 
                         length=len('``'), 
                     ),
-                    TokenText(
+                    TextToken(
                         
                         length=len('x'),
                     ),
-                    TokenSeq(
-                        sequence=Sequence.BACKTICK,
+                    SequenceToken(
+                        sequence=SeqKind.BACKTICK,
                         length=len('``'),
                     )
                 ]
@@ -524,11 +524,11 @@ class TestLexer(unittest.TestCase):
             (
                 '.red',
                 [
-                    TokenSeq(
-                        sequence=Sequence.PERIOD, 
+                    SequenceToken(
+                        sequence=SeqKind.PERIOD, 
                         length=len('.'), 
                     ),
-                    TokenText(
+                    TextToken(
                         
                         length=len('red'),
                     ),
@@ -547,7 +547,7 @@ class TestLexer(unittest.TestCase):
             (
                 '\\a',
                 [
-                    TokenText(
+                    TextToken(
                         length=len('\\a'), 
                     ),
                 ]
@@ -555,10 +555,10 @@ class TestLexer(unittest.TestCase):
             (
                 '\\*a',
                 [
-                    TokenEscape(
+                    EscapeToken(
                         length=len('\\'), 
                     ),
-                    TokenText(
+                    TextToken(
                         length=len('*a'), 
                     ),
                 ]
@@ -584,40 +584,40 @@ class TestLexer(unittest.TestCase):
 
     def test_basic(self):
         cases = [
-            ('abc', [TokenText(length=3)]),
+            ('abc', [TextToken(length=3)]),
             (
                 'para w/ some _emphasis_ and *strong*.',
                 [
-                    TokenText(
+                    TextToken(
                         length=len('para w/ some ')
                     ),
-                    TokenSym(
-                        symbol=Symbol.UNDERSCORE,
+                    SymToken(
+                        symbol=SymbolKind.UNDERSCORE,
                         length=1
                     ),
-                    TokenText(
+                    TextToken(
                         length=len('emphasis'),
                     ),
-                    TokenSym(
-                        symbol=Symbol.UNDERSCORE,
+                    SymToken(
+                        symbol=SymbolKind.UNDERSCORE,
                         length=len('_'),
                     ),
-                    TokenText(
+                    TextToken(
                         length=len(' and '),
                     ),
-                    TokenSym(
-                        symbol=Symbol.ASTERISK,
+                    SymToken(
+                        symbol=SymbolKind.ASTERISK,
                         length=len('*'),
                     ),
-                    TokenText(
+                    TextToken(
                         length=len('strong'),
                     ),
-                    TokenSym(
-                        symbol=Symbol.ASTERISK,
+                    SymToken(
+                        symbol=SymbolKind.ASTERISK,
                         length=len('*'),
                     ),
-                    TokenSeq(
-                        sequence=Sequence.PERIOD,
+                    SequenceToken(
+                        sequence=SeqKind.PERIOD,
                         length=len('.'),
                     )
                 ]
@@ -634,23 +634,23 @@ class TestLexer(unittest.TestCase):
         cases = [
             (
                 r'\a',
-                [TokenText(length=2)]
+                [TextToken(length=2)]
             ),
             (
                 r'\\a', # TokenEscape(1), TokenText(1), TokenText(1)
-                [TokenEscape(1), TokenText(2)]
+                [EscapeToken(1), TextToken(2)]
             ),
             (
                 r'\.',
-                [TokenEscape(length=1), TokenText(length=1)]
+                [EscapeToken(length=1), TextToken(length=1)]
             ),
             (
                 r'\ ',
-                [TokenEscape(length=1), TokenNbsp(length=1)]
+                [EscapeToken(length=1), TokenNbsp(length=1)]
             ),
             (
                 r'\{-',
-                [TokenEscape(length=1), TokenText(1), TokenSeq(1, Sequence.HYPHEN)]
+                [EscapeToken(length=1), TextToken(1), SequenceToken(1, SeqKind.HYPHEN)]
             )
         ]
 
@@ -665,24 +665,24 @@ class TestLexer(unittest.TestCase):
             (
                 'a\\\n',
                 [
-                    TokenText(1),
-                    TokenEscape(1),
+                    TextToken(1),
+                    EscapeToken(1),
                     TokenHardbreak(1),
                 ]
             ),
             (
                 'a\\   \n',
                 [
-                    TokenText(1),
-                    TokenEscape(1),
+                    TextToken(1),
+                    EscapeToken(1),
                     TokenHardbreak(4)
                 ]
             ),
             (
                 'a\\\t \t \n',
                 [
-                    TokenText(1),
-                    TokenEscape(1),
+                    TextToken(1),
+                    EscapeToken(1),
                     TokenHardbreak(5)
                 ]
             )
@@ -698,7 +698,7 @@ class TestLexer(unittest.TestCase):
             (
                 '{-',
                 [
-                    TokenOpen(
+                    OpenToken(
                         delimiter=Delimiter.BRACE_HYPHEN,
                         length=2
                     )
@@ -707,7 +707,7 @@ class TestLexer(unittest.TestCase):
             (
                 '-}',
                 [
-                    TokenClose(
+                    CloseToken(
                         delimiter=Delimiter.BRACE_HYPHEN,
                         length=2
                     )
@@ -716,11 +716,11 @@ class TestLexer(unittest.TestCase):
             (
                 '{++}',
                 [
-                    TokenOpen(
+                    OpenToken(
                         delimiter=Delimiter.BRACE_PLUS,
                         length=2
                     ),
-                    TokenClose(
+                    CloseToken(
                         delimiter=Delimiter.BRACE_PLUS,
                         length=2
                     )
@@ -739,40 +739,40 @@ class TestLexer(unittest.TestCase):
             (
                 '\'*^![<|"~_',
                 [
-                    TokenSym(
-                        symbol=Symbol.QUOTE1,
+                    SymToken(
+                        symbol=SymbolKind.QUOTE1,
                         length=len("'"),
                     ),
-                    TokenSym(
-                        symbol=Symbol.ASTERISK,
+                    SymToken(
+                        symbol=SymbolKind.ASTERISK,
                         length=len("*"),
                     ),
-                    TokenSym(
-                        symbol=Symbol.CARET,
+                    SymToken(
+                        symbol=SymbolKind.CARET,
                         length=len("^"),
                     ),
-                    TokenSym(
-                        symbol=Symbol.EXCLAIM_BRACKET,
+                    SymToken(
+                        symbol=SymbolKind.EXCLAIM_BRACKET,
                         length=len("!["),
                     ),
-                    TokenSym(
-                        symbol=Symbol.LT,
+                    SymToken(
+                        symbol=SymbolKind.LT,
                         length=len("<"),
                     ),
-                    TokenSym(
-                        symbol=Symbol.PIPE,
+                    SymToken(
+                        symbol=SymbolKind.PIPE,
                         length=len("|"),
                     ),
-                    TokenSym(
-                        symbol=Symbol.QUOTE2,
+                    SymToken(
+                        symbol=SymbolKind.QUOTE2,
                         length=len('"'),
                     ),
-                    TokenSym(
-                        symbol=Symbol.TILDE,
+                    SymToken(
+                        symbol=SymbolKind.TILDE,
                         length=len("~"),
                     ),
-                    TokenSym(
-                        symbol=Symbol.UNDERSCORE,
+                    SymToken(
+                        symbol=SymbolKind.UNDERSCORE,
                         length=len("_"),
                     )
                 ]
@@ -780,20 +780,20 @@ class TestLexer(unittest.TestCase):
             (
                 "''''",
                 [
-                    TokenSym(
-                        symbol=Symbol.QUOTE1,
+                    SymToken(
+                        symbol=SymbolKind.QUOTE1,
                         length=1,
                     ),
-                    TokenSym(
-                        symbol=Symbol.QUOTE1,
+                    SymToken(
+                        symbol=SymbolKind.QUOTE1,
                         length=1,
                     ),
-                    TokenSym(
-                        symbol=Symbol.QUOTE1,
+                    SymToken(
+                        symbol=SymbolKind.QUOTE1,
                         length=1,
                     ),
-                    TokenSym(
-                        symbol=Symbol.QUOTE1,
+                    SymToken(
+                        symbol=SymbolKind.QUOTE1,
                         length=1,
                     ),
                 ]
@@ -811,8 +811,8 @@ class TestLexer(unittest.TestCase):
             (
                 "`",
                 [
-                    TokenSeq(
-                        sequence=Sequence.BACKTICK,
+                    SequenceToken(
+                        sequence=SeqKind.BACKTICK,
                         length=1,
                     ),
                 ]
@@ -820,8 +820,8 @@ class TestLexer(unittest.TestCase):
             (
                 "```",
                 [
-                    TokenSeq(
-                        sequence=Sequence.BACKTICK,
+                    SequenceToken(
+                        sequence=SeqKind.BACKTICK,
                         length=3,
                     )
                 ]
@@ -829,16 +829,16 @@ class TestLexer(unittest.TestCase):
             (
                 "`-.",
                 [
-                    TokenSeq(
-                        sequence=Sequence.BACKTICK,
+                    SequenceToken(
+                        sequence=SeqKind.BACKTICK,
                         length=1,
                     ),
-                    TokenSeq(
-                        sequence=Sequence.HYPHEN,
+                    SequenceToken(
+                        sequence=SeqKind.HYPHEN,
                         length=1,
                     ),
-                    TokenSeq(
-                        sequence=Sequence.PERIOD,
+                    SequenceToken(
+                        sequence=SeqKind.PERIOD,
                         length=1,
                     ),
                 ]
