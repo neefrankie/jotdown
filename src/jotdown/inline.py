@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -7,8 +7,11 @@ from typing import List, Optional, Tuple
 from .lex import (
     Lexer,
     Token,
-    TokenOpen,
     Delimiter,
+    OpenToken,
+    CloseToken,
+    SymToken,
+    SymbolKind,
 )
 from .utils import (
     is_ascii_whitespace
@@ -140,15 +143,15 @@ class Event:
     pass
 
 @dataclass
-class EventEnter(Event):
+class EnterEvent(Event):
     container: Container
 
 @dataclass
-class EventExit(Event):
+class ExitEvent(Event):
     container: Container
 
 @dataclass
-class EventAtom(Event):
+class AtomEvent(Event):
     atom: Atom
 
 @dataclass
@@ -156,11 +159,11 @@ class EventStr(Event):
     pass
 
 @dataclass
-class EventEmpty(Event):
+class StrEvent(Event):
     pass
 
 @dataclass
-class EventAttributes(Event):
+class AttributesEvent(Event):
     container: bool
     attrs_index: int
 
@@ -235,7 +238,7 @@ class Input:
         tok = self.lexer.peek()
         if tok is None:
             return None
-        if not isinstance(tok, TokenOpen):
+        if not isinstance(tok, OpenToken):
             return None
         if tok.delimiter != Delimiter.BRACE_EQUAL: # {=
             return None
@@ -263,7 +266,7 @@ class Input:
         l = end - start
         if l > 0 and ahead_str[end] == '}':
             tok = self.eat() # consume this token
-            assert isinstance(tok, TokenOpen)
+            assert isinstance(tok, OpenToken)
             assert tok.delimiter == Delimiter.BRACE_EQUAL
             assert tok.length == 2
 
@@ -303,47 +306,133 @@ class SpanType(Enum):
     GENERAL = auto()
 
 class Opener(ABC):
-    pass
+
+    @abstractmethod
+    def close_by(self, tok: Token) -> bool:
+        pass
 
 @dataclass
 class SpanOpener(Opener):
+    """
+    [read the manual]{.big .red}
+    """
     typ: SpanType
+
+    def close_by(self, tok: Token) -> bool:
+        match tok:
+            case CloseToken(delimiter=Delimiter.BRACKET): # ]
+                return True
+            case _:
+                return False
 
 @dataclass
 class DirectionalOpener(Opener, ABC):
     direction: Directionality
 
+    def bidirectional(self) -> bool:
+        return self.direction == Directionality.BI
+
 @dataclass
 class StrongOpener(DirectionalOpener):
-    pass
+    """
+    * or {*
+    """
+
+    def close_by(self, tok: Token) -> bool:
+        match tok:
+            case SymToken(symbol=SymbolKind.ASTERISK) if self.direction == Directionality.BI: # *
+                return True
+            case CloseToken(delimiter=Delimiter.BRACE_ASTERISK) if self.direction == Directionality.UNI: # *}
+                return True
+
+            case _:
+                return False
 
 @dataclass
 class EmphasisOpener(DirectionalOpener):
-    pass
+    def close_by(self, tok: Token) -> bool:
+        match tok:
+            case SymToken(symbol=SymbolKind.UNDERSCORE) if self.direction == Directionality.BI: # _
+                return True
+            case CloseToken(delimiter=Delimiter.BRACE_UNDERSCORE) if self.direction == Directionality.UNI: # _}
+                return True
+    
+            case _:
+                return False
 
 @dataclass
-class SuperscriptOpener(Opener):
-    pass
+class SuperscriptOpener(DirectionalOpener):
+    def close_by(self, tok: Token) -> bool:
+        match tok:
+            case SymToken(symbol=SymbolKind.CARET) if self.direction == Directionality.BI: # ^
+                return True
+            case CloseToken(delimiter=Delimiter.BRACE_CARET) if self.direction == Directionality.UNI: # ^}
+                return True
+    
+            case _:
+                return False
+
+@dataclass
+class SubscriptOpener(DirectionalOpener):
+    def close_by(self, tok: Token) -> bool:
+        match tok:
+            case SymToken(symbol=SymbolKind.TILDE) if self.direction == Directionality.BI: # ~
+                return True
+            case CloseToken(delimiter=Delimiter.BRACE_TILDE) if self.direction == Directionality.UNI: # ~}
+                return True
+    
+            case _:
+                return False
 
 @dataclass
 class MarkOpener(Opener):
-    pass
+    def close_by(self, tok: Token) -> bool:
+        match tok:
+            case CloseToken(delimiter=Delimiter.BRACE_EQUAL): # =}
+                return True
+    
+            case _:
+                return False
 
 @dataclass
 class DeleteOpener(Opener):
-    pass
+    def close_by(self, tok: Token) -> bool:
+        match tok:
+            case CloseToken(delimiter=Delimiter.BRACE_HYPHEN): # -}
+                return True
+    
+            case _:
+                return False
 
 @dataclass
 class InsertOpener(Opener):
-    pass
+    def close_by(self, tok: Token) -> bool:
+        match tok:
+            case CloseToken(delimiter=Delimiter.BRACE_PLUS): # +}
+                return True
+    
+            case _:
+                return False
 
 @dataclass
 class SingleQuotedOpener(Opener):
-    pass
+    def close_by(self, tok: Token) -> bool:
+        match tok:
+            case SymToken(symbol=SymbolKind.QUOTE1) | CloseToken(delimiter=Delimiter.BRACE_QUOTE1): # ' or '}
+                return True
+    
+            case _:
+                return False
 
 @dataclass
-class DoubleQuoted(Opener):
-    pass
+class DoubleQuotedOpener(Opener):
+    def close_by(self, tok: Token) -> bool:
+        match tok:
+            case SymToken(symbol=SymbolKind.QUOTE2) | CloseToken(delimiter=Delimiter.BRACE_QUOTE2): # " or "}
+                return True
+    
+            case _:
+                return False
 
 @dataclass
 class LinkOpener(Opener):
@@ -351,7 +440,55 @@ class LinkOpener(Opener):
     image: bool
     inline: bool
 
+    def close_by(self, tok: Token) -> bool:
+        match tok:
+            case CloseToken(delimiter=Delimiter.BRACKET) if not self.inline: 
+                return True
+            case CloseToken(delimiter=Delimiter.PAREN) if self.inline:
+                return True
+    
+            case _:
+                return False
+
+def opener_from_token(tok: Token) -> Optional[Opener]:
+    match tok:
+        case SymToken(symbol=SymbolKind.ASTERISK): # *
+            return StrongOpener(Directionality.BI)
+        case SymToken(symbol=SymbolKind.UNDERSCORE): # _
+            return EmphasisOpener(Directionality.BI)
+        case SymToken(symbol=SymbolKind.CARET): # ^
+            return SuperscriptOpener(Directionality.BI)
+        case SymToken(symbol=SymbolKind.TILDE): # ~
+            return SubscriptOpener(Directionality.BI)
+        case SymToken(symbol=SymbolKind.QUOTE1): # '
+            return SingleQuotedOpener()
+        case SymToken(symbol=SymbolKind.QUOTE2): # "
+            return DoubleQuotedOpener()
+        case SymToken(symbol=SymbolKind.EXCLAIM_BRACKET): # ![
+            return SpanOpener(SpanType.IMAGE)
+        case OpenToken(delimiter=Delimiter.BRACKET): # [
+            # [read the manaual]{.big .red}
+            return SpanOpener(SpanType.GENERAL)
+        case OpenToken(delimiter=Delimiter.BRACE_ASTERISK): # {*
+            return StrongOpener(Directionality.UNI)
+        case OpenToken(delimiter=Delimiter.BRACE_UNDERSCORE): # {-
+            return EmphasisOpener(Directionality.UNI)
+        case OpenToken(delimiter=Delimiter.BRACE_CARET): # {^
+            return SuperscriptOpener(Directionality.UNI)
+        case OpenToken(delimiter=Delimiter.BRACE_TILDE): # {~
+            return SubscriptOpener(Directionality.UNI)
+        case OpenToken(delimiter=Delimiter.BRACE_EQUAL): # {=
+            return MarkOpener()
+        case OpenToken(delimiter=Delimiter.BRACE_HYPHEN): # {-
+            return DeleteOpener()
+        case OpenToken(delimiter=Delimiter.BRACE_PLUS): # {+
+            return InsertOpener()
+        case OpenToken(delimiter=Delimiter.BRACE_QUOTE1): # {'
+            return SingleQuotedOpener()
+        case OpenToken(delimiter=Delimiter.BRACE_QUOTE2): # {"
+            return DoubleQuotedOpener()
 class InlineParser:
     def __init__(self, src: str):
         self.input = Input(src)
         self.openers: List[Tuple[Opener, int]]
+        self.events: deque[Event]
