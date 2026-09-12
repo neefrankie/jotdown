@@ -76,8 +76,16 @@ class DelimiterToken(Token, ABC):
     delimiter: Delimiter
 
     @property
-    def is_brace(self):
+    def is_brace(self) -> bool:
         return self.delimiter == Delimiter.BRACE
+
+    @property
+    def is_brace_equal(self) -> bool:
+        return self.delimiter == Delimiter.BRACE_EQUAL
+
+    @property
+    def is_bracket(self) -> bool:
+        return self.delimiter == Delimiter.BRACKET
 
 @dataclass
 class OpenToken(DelimiterToken):
@@ -90,6 +98,18 @@ class CloseToken(DelimiterToken):
 @dataclass
 class SymToken(Token):
     symbol: SymbolKind
+
+    @property
+    def is_less_than(self):
+        return self.symbol == SymbolKind.LT
+
+    @property
+    def is_colon(self):
+        return self.symbol == SymbolKind.COLON
+
+    @property
+    def is_caret(self):
+        return self.symbol == SymbolKind.CARET
 
 @dataclass
 class SequenceToken(Token):
