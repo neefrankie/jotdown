@@ -167,21 +167,21 @@ class State(Enum):
                 else:
                     return State.INVALID
             case State.COMMENT_FIRST | State.COMMENT | State.COMMENT_NEWLINE:
-                if ch == '%':
+                if ch == '%': # `%%`,`...comment%`, `\n%`
                     return State.WHITESPACE
-                elif ch == '}':
+                elif ch == '}': # %}, comment}, \n}
                     return State.DONE
-                elif ch == '\n':
+                elif ch == '\n': # %\n, comment\n, \n\n 
                     return State.COMMENT_NEWLINE
                 else:
                     return State.COMMENT
             case State.CLASS_FIRST:
-                if is_name_char(ch):
+                if is_name_char(ch): # .foo
                     return State.CLASS
                 else:
                     return State.INVALID
             case State.IDENTIFIER_FIRST:
-                if is_name_char(ch):
+                if is_name_char(ch): # #bar
                     return State.IDENTIFIER
                 else:
                     return State.INVALID
@@ -202,32 +202,32 @@ class State(Enum):
                 else:
                     return State.INVALID
             case State.VALUE_FIRST:
-                if is_name_char(ch):
+                if is_name_char(ch): # =value
                     return State.VALUE
-                elif ch == '"':
+                elif ch == '"': # ="
                     return State.VALUE_QUOTED
                 else:
                     return State.INVALID
             case State.VALUE_QUOTED:
-                if ch == '"':
+                if ch == '"': # "..."
                     return State.WHITESPACE
-                elif ch == '\n':
+                elif ch == '\n': # "...\n"
                     return State.VALUE_NEWLINE
-                elif ch == '\\':
+                elif ch == '\\': # "...\..."
                     return State.VALUE_ESCAPE
                 else:
-                    return State.VALUE_QUOTED
+                    return State.VALUE_QUOTED # "..."
             case State.VALUE_NEWLINE | State.VALUE_CONTINUED:
-                if ch == '"':
+                if ch == '"': # \n"
                     return State.WHITESPACE
-                elif ch == '\n':
+                elif ch == '\n': #\n\n
                     return State.VALUE_NEWLINE
                 else:
                     return State.VALUE_CONTINUED
             case State.VALUE_ESCAPE:
-                if ch == '\n':
+                if ch == '\n': # \\n
                     return State.VALUE_NEWLINE
-                else:
+                else: # \anychar
                     return State.VALUE_QUOTED
             case State.INVALID | State.DONE:
                 raise Exception(f'Invalid state {self.name}')
@@ -287,3 +287,21 @@ class Parser:
 
     def finish(self) -> Attributes:
         return self.attrs
+
+class Validator:
+    def __init__(self) -> None:
+        self.state = State.START
+
+    def restart(self):
+        self.state = State.START
+
+    def parse(self, text: str) -> Optional[int]:
+        for i, ch in enumerate(text):
+            self.state = self.state.step(ch)
+            match self.state:
+                case State.DONE:
+                    return i + 1
+                case State.INVALID:
+                    return 0
+
+        return None
