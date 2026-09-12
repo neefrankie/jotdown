@@ -1,85 +1,25 @@
-from abc import ABC
-from dataclasses import dataclass
-from enum import Enum, StrEnum, auto
 from typing import Callable, Optional
 
 from .utils import (
     is_ascii_whitespace,
     is_ascii_punctuation,
 )
-
-
-class Delimiter(Enum):
-    BRACE = auto() # {
-    BRACE_ASTERISK = auto() # {*
-    BRACE_CARET = auto() # {^
-    BRACE_EQUAL = auto() # {=
-    BRACE_HYPHEN = auto() # {-
-    BRACE_PLUS = auto() # {+
-    BRACE_TILDE = auto() # {~
-    BRACE_UNDERSCORE = auto() # {_
-    BRACKET = auto() # [
-    BRACE_QUOTE1 = auto() # {'
-    BRACE_QUOTE2 = auto() # {"
-    PAREN = auto() # (
-
-class SymbolKind(Enum):
-    ASTERISK = auto() # *
-    CARET = auto() # ^
-    EXCLAIM_BRACKET = auto() # ![
-    LT = auto() # <
-    PIPE = auto() # |
-    QUOTE1 = auto() # '
-    QUOTE2 = auto() # "
-    TILDE = auto() # ~
-    UNDERSCORE = auto() # _
-    COLON = auto() # :
-
-class SeqKind(StrEnum):
-    BACKTICK = '`'
-    HYPHEN = '-'
-    PERIOD = '.'
-
-
-@dataclass
-class Token(ABC):
-    length: int
-
-@dataclass
-class TextToken(Token):
-    pass
-
-@dataclass
-class NewlineToken(Token):
-    pass
-
-@dataclass
-class TokenNbsp(Token):
-    pass
-
-@dataclass
-class TokenHardbreak(Token):
-    pass
-
-@dataclass
-class EscapeToken(Token):
-    pass
-
-@dataclass
-class OpenToken(Token):
-    delimiter: Delimiter
-
-@dataclass
-class CloseToken(Token):
-    delimiter: Delimiter
-
-@dataclass
-class SymToken(Token):
-    symbol: SymbolKind
-
-@dataclass
-class SequenceToken(Token):
-    sequence: SeqKind
+from .token import (
+    Delimiter,
+    braced_delimiters,
+    SymbolKind,
+    SeqKind,
+    Token,
+    TextToken,
+    NewlineToken,
+    NbspToken,
+    HardbreakToken,
+    EscapeToken,
+    OpenToken,
+    CloseToken,
+    SymToken,
+    SequenceToken,
+)
 
 class Lexer:
 
@@ -174,15 +114,15 @@ class Lexer:
         
         match ch:
             case '\n': # \\n
-                return TokenHardbreak(self._pos - start)
+                return HardbreakToken(self._pos - start)
             case '\t' | ' ':
                 # \'\t' | ' '
                 if self._is_next_non_space_newline():
                     while self._eat_char() != '\n':
                         pass
-                    return TokenHardbreak(self._pos - start)
+                    return HardbreakToken(self._pos - start)
                 else:
-                    return TokenNbsp(self._pos - start)
+                    return NbspToken(self._pos - start)
             case _:
                 return TextToken(self._pos - start)
 
@@ -219,20 +159,9 @@ class Lexer:
                 return CloseToken(self._pos - start, Delimiter.PAREN)
 
             case '{':
-                brace_mapping = {
-                    '*': Delimiter.BRACE_ASTERISK, # strong
-                    '^': Delimiter.BRACE_CARET, # superscript
-                    '=': Delimiter.BRACE_EQUAL, # highlighed
-                    '-': Delimiter.BRACE_HYPHEN, # delete
-                    '+': Delimiter.BRACE_PLUS, # insert
-                    '~': Delimiter.BRACE_TILDE, # subscript
-                    '_': Delimiter.BRACE_UNDERSCORE, # emphasis
-                    '\'': Delimiter.BRACE_QUOTE1,
-                    '"': Delimiter.BRACE_QUOTE2,
-                }
                 next_ch = self._peek_char()
-                if next_ch and next_ch in brace_mapping:
-                    kind = brace_mapping[next_ch]
+                if next_ch and next_ch in braced_delimiters:
+                    kind = braced_delimiters[next_ch]
                     self._eat_char() # move pos after next_ch
                     return OpenToken(self._pos - start, delimiter=kind)
                 
