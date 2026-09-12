@@ -26,7 +26,7 @@ class Lexer:
     _SPECIAL_CHARS = set('\\[](){}*^=+~_\'"-!<|:`.\n')
 
     def __init__(self, src: str):
-        self._src: str = src
+        self.src: str = src
         self._pos: int = 0
         self._escape: bool = False
         # _next plays two role:
@@ -36,6 +36,11 @@ class Lexer:
         # This avoids repeated parsing of the same token.
         self._next: Optional[Token] = None
         self.verbatim: bool = False
+        self._length = len(src)
+
+    @property
+    def length(self) -> int:
+        return self._length
 
     def peek(self) -> Optional[Token]:
         """
@@ -63,10 +68,20 @@ class Lexer:
         """
         Backtracing the starting position of a peeked token
         after peeking moved forward current cursor.
+        Where is pos pointing to now?
+        If _next is not None:
+        token_processed token_will_be_process pos_here
+        If _next is None:
+        token_processed pos_here
         """
         l = self._next.length if self._next else 0
         start = self._pos - l
-        return self._src[start:]
+        return self.src[start:]
+
+    def next_token_start(self) -> int:
+        l = self._next.length if self._next else 0
+        return self._pos - l
+
 
     def skip_ahead(self, n: int):
         self._pos += n
@@ -268,22 +283,22 @@ class Lexer:
 
     def _is_next_non_space_newline(self) -> bool:
         """检查从当前位置到下一个非空格/制表符的字符是否是换行符"""
-        for i in range(self._pos, len(self._src)):
-            ch = self._src[i]
+        for i in range(self._pos, len(self.src)):
+            ch = self.src[i]
             if ch not in (' ', '\t'):
                 return ch == '\n'
         return False  # All space after _pos
 
     def _peek_char(self, n: int = 0) -> Optional[str]:
         idx = self._pos + n
-        if idx < len(self._src):
-            return self._src[idx]
+        if idx < len(self.src):
+            return self.src[idx]
 
         return None
     
     def _eat_char(self) -> Optional[str]:
-        if self._pos < len(self._src):
-            c = self._src[self._pos]
+        if self._pos < len(self.src):
+            c = self.src[self._pos]
             self._pos += 1
             return c
         return None
