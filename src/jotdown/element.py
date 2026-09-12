@@ -16,7 +16,7 @@ class FootnoteReference(Atom):
 
 @dataclass
 class Symbol(Atom):
-    s: str
+    symbol: str
 
 @dataclass
 class Softbreak(Atom):
@@ -127,4 +127,4 @@ class inlineImage(Container):
 
 @dataclass
 class AutoLink(Container):
-    index: int
+    url: str
