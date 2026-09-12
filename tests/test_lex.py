@@ -2,13 +2,15 @@ import unittest
 
 from jotdown.lex import (
     Lexer,
+)
+from jotdown.token import (
     Delimiter,
     SymbolKind,
     SeqKind,
     TextToken,
     NewlineToken,
-    TokenNbsp,
-    TokenHardbreak,
+    NbspToken,
+    HardbreakToken,
     EscapeToken,
     OpenToken,
     CloseToken,
@@ -100,12 +102,12 @@ class TestLexer(unittest.TestCase):
 
     def test_escaped_token(self):
         cases = [
-            ('\n', TokenHardbreak),
-            ('\t  \n', TokenHardbreak),
-            ('\t\n', TokenHardbreak),
+            ('\n', HardbreakToken),
+            ('\t  \n', HardbreakToken),
+            ('\t\n', HardbreakToken),
             # ('\t\r\n', TokenHardbreak), # this test fails because of the way we handle newlines
-            ('\t', TokenNbsp),
-            ('\t  hello', TokenNbsp) # plain text after tab
+            ('\t', NbspToken),
+            ('\t  hello', NbspToken) # plain text after tab
         ]
         for text, expected in cases:
             with self.subTest():
@@ -227,14 +229,14 @@ class TestLexer(unittest.TestCase):
                 '\\ ',
                 [
                     EscapeToken(1),
-                    TokenNbsp(1)
+                    NbspToken(1)
                 ]
             ),
             (
                 '\\\n',
                 [
                     EscapeToken(1),
-                    TokenHardbreak(1)
+                    HardbreakToken(1)
                 ]
             ),
             (
@@ -646,7 +648,7 @@ class TestLexer(unittest.TestCase):
             ),
             (
                 r'\ ',
-                [EscapeToken(length=1), TokenNbsp(length=1)]
+                [EscapeToken(length=1), NbspToken(length=1)]
             ),
             (
                 r'\{-',
@@ -667,7 +669,7 @@ class TestLexer(unittest.TestCase):
                 [
                     TextToken(1),
                     EscapeToken(1),
-                    TokenHardbreak(1),
+                    HardbreakToken(1),
                 ]
             ),
             (
@@ -675,7 +677,7 @@ class TestLexer(unittest.TestCase):
                 [
                     TextToken(1),
                     EscapeToken(1),
-                    TokenHardbreak(4)
+                    HardbreakToken(4)
                 ]
             ),
             (
@@ -683,7 +685,7 @@ class TestLexer(unittest.TestCase):
                 [
                     TextToken(1),
                     EscapeToken(1),
-                    TokenHardbreak(5)
+                    HardbreakToken(5)
                 ]
             )
         ]
