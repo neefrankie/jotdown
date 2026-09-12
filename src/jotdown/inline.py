@@ -27,6 +27,7 @@ from .event import (
     EventKindExit,
     EventKindPlaceholder,
     EventKindStr,
+    EventKindAtom,
 )
 from .element import (
     Container,
@@ -35,6 +36,9 @@ from .element import (
     InlineMath,
     DisplayMath,
     ensure_verbatim,
+    AutoLink,
+    Symbol,
+    FootnoteReference,
 )
 
 class Directionality(Enum):
@@ -311,12 +315,18 @@ class Input:
         return self.complete and len(self.ahead) == 0
 
     def eat(self) -> Optional[Token]:
+        """
+        Consume the next token in lexer and extend current span.
+        """
         tok = next(self.lexer, None)
         if tok is not None:
             self.span.end += tok.length
         return tok
 
     def peek(self) -> Optional[Token]:
+        """
+        Get the next token from lexer.
+        """
         self.lexer.peek()
 
     def reset_span(self):
@@ -333,7 +343,7 @@ class Input:
             return None
         if not isinstance(tok, OpenToken):
             return None
-        if tok.delimiter != Delimiter.BRACE_EQUAL: # {=
+        if not tok.is_brace_equal: # {=
             return None
 
         # Now the cursor is move after {=.
@@ -373,6 +383,96 @@ class Input:
             )
 
         return None
+
+    def ahead_symbol_len(self) -> Optional[int]:
+        # :smiley:
+        # The first : is processed now.
+        ended = False
+        valid = True
+
+        # NOTE the index is only valid for lexer.
+        # This is not the index in the full source document.
+        start_idx = self.lexer.next_token_start()
+        end_idx = start_idx
+
+        while end_idx < self.lexer.length:
+            ch = self.lexer.src[end_idx]
+            if ch == ':':
+                ended = True
+                break
+            if is_ascii_whitespace(ch):
+                break
+
+            if ch in '-+_':
+                valid = False
+
+            end_idx += 1
+
+        if not ended or not valid:
+            return None
+
+        # Now end_idx point to closing :
+        l = end_idx - start_idx
+
+        return l
+
+    def ahead_autolink_len(self) -> Optional[int]:
+        ended = False
+        is_url = False
+
+        start_idx = self.lexer.next_token_start()
+        end_idx = start_idx
+
+        while end_idx < self.lexer.length:
+            ch = self.lexer.src[end_idx]
+            if ch == '>':
+                ended = True
+                break
+            if ch == '<':
+                break
+            if is_ascii_whitespace(ch):
+                break
+
+            if ch in ':@':
+                is_url = True
+
+            end_idx += 1
+
+        if not ended or not is_url:
+            return None
+
+        l = end_idx - start_idx
+
+        return l
+
+    def ahead_footnote_reference(self) -> Optional[int]:
+        """
+        Parse footnote content and returns its length.
+        Position is pointing to the char after caret in [^ now.
+        """
+
+        ended = False
+        start_idx = self.lexer.next_token_start()
+        end_idx = start_idx
+        while end_idx < self.lexer.length:
+            ch = self.lexer.src[end_idx]
+            if ch == ']':
+                ended = True
+                break
+            if ch == '[':
+                break
+            if ch == '\n':
+                break
+
+        if not ended:
+            return None
+
+        return end_idx - start_idx
+
+
+
+
+
 
 class InlineParser:
     def __init__(self, src: str):
@@ -673,9 +773,100 @@ class InlineParser:
             line_start = last_line.start
             line_end = last_line.end
 
-            
+    def _parse_autolink(self, first: Token) -> Optional[ControlFlow]:
+        """
+        A URL or email address enclosed in <...>
+        The content is treated literally. No escape. No newline.
+        """
+        if not isinstance(first, SymToken):
+            return None
 
-                    
-                
+        if not first.is_less_than:
+            return None
 
+        length = self._input.ahead_autolink_len()
+        if length is None:
+            return None
 
+        self._input.lexer.skip_ahead(length + 1)
+        span_url = Range(
+            start=self._input.span.end,
+            end=self._input.span.end + length,
+        )
+        url = self._input.src[span_url.to_slice()]
+        
+        self._push(EventKindEnter(AutoLink(url)))
+        self._input.span = span_url
+        self._push(EventKindStr())
+        self._input.span = Range(
+            start=self._input.span.end, # The closing >
+            end=self._input.span.end + 1
+        )
+        return self._push(EventKindExit(AutoLink(url)))
+
+    def _parse_symbol(self, first: Token) -> Optional[ControlFlow]:
+        """
+        A word surrounded by : creates a symbol.
+
+        Example:
+            :smiley:
+        """
+        if not isinstance(first, SymToken):
+            return None
+
+        if not first.is_colon:
+            return None
+
+        length = self._input.ahead_symbol_len()
+        if length is None:
+            return None
+        
+        self._input.lexer.skip_ahead(length + 1)
+        span_symbol = Range(
+            start=self._input.span.end,
+            end=self._input.span.end + length,
+        )
+        self._input.span.end = span_symbol.end + 1
+
+        symbol = self._input.src[span_symbol.to_slice()]
+
+        return self._push(EventKindAtom(Symbol(symbol)))
+
+    def _parse_footnote_reference(self, first: Token) -> Optional[ControlFlow]:
+        """
+        ^ + the reference label in square bracket.
+
+        Exmaple:
+            [^foo]
+        """
+        if not isinstance(first, OpenToken):
+            return None
+
+        if not first.is_bracket: # the [
+            return None
+
+        next_tok = self._input.peek() # ^
+        if not isinstance(next_tok, SymToken):
+            return None
+
+        if not next_tok.is_caret:
+            return None
+
+        self._input.eat() # consume the token ^
+
+        assert next_tok.length == 1
+
+        length = self._input.ahead_footnote_reference()
+        if not length:
+            return None
+        
+        self._input.lexer.skip_ahead(length + 1)
+        span_label = Range(
+            start=self._input.span.end,
+            end=self._input.span.end + length,
+        )
+        label = self._input.src[span_label.to_slice()]
+        self._input.span.end = span_label.end + 1
+        return self._push(EventKindAtom(FootnoteReference(label)))
+
+        
