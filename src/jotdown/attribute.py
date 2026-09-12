@@ -324,17 +324,25 @@ class AttributeParser:
     def _read_comment(self) -> str:
         self.pos += 1 # ignore the '%'
         start = self.pos
+
+        escaped = False # handle % and }
         while self.pos < self.length:
             ch = self.text[self.pos]
-            if ch == '%':
-                # comment ends
-                end = self.pos
-                self.pos += 1
-                return self.text[start:end]
-            elif ch == '}': # Leave the closing brace to caller.
-                end = self.pos
-                return self.text[start:end]
+            if not escaped:
+                if ch == '\\':
+                    escaped = True
+                    self.pos += 1
+                    continue
+                elif ch == '%':
+                    # comment ends
+                    end = self.pos
+                    self.pos += 1
+                    return self.text[start:end]
+                elif ch == '}': # Leave the closing brace to caller.
+                    end = self.pos
+                    return self.text[start:end]
             self.pos += 1
+            escaped = False
 
         # Reaching EOF, comment not closed.
         return self.text[start:self.pos]
@@ -352,3 +360,86 @@ class AttributeParser:
             self.pos += 1
         else:
             raise ParseError(f"Expected {expected} at position {self.pos}")
+
+
+def find_attribute_end(src: str, start_pos: int) -> int:
+    """
+    给定原始字符串 src 和起始 '{' 的位置 start_pos，
+    返回匹配的 '}' 的索引位置。如果未匹配成功，返回 -1。
+    """
+    n = len(src)
+    i = start_pos + 1  # 跳过开头的 '{'
+    
+    in_string = False
+    in_comment = False
+    
+    while i < n:
+        c = src[i]
+        
+        # 1. 处理转义字符：直接跳过下一个字符
+        if c == '\\':
+            i += 2
+            continue
+            
+        # 2. 处理字符串内部状态
+        if c == '"' and not in_comment:
+            in_string = not in_string
+            i += 1
+            continue
+            
+        # 3. 处理注释内部状态
+        if c == '%' and not in_string:
+            in_comment = not in_comment
+            i += 1
+            continue
+            
+        # 4. 在非字符串、非注释状态下寻找闭合大括号
+        if c == '}' and not in_string and not in_comment:
+            return i
+            
+        # 5. 如果遇到换行符且不在注释/字符串中（根据 Djot 规范，块级属性可跨行，但内联属性不能跨空行）
+        # 这里可以根据需要加入边界拦截
+        
+        i += 1
+        
+    return -1  # 没找到匹配的 '}'
+
+# 多组属性之间允许空白吗？
+# 允许，但仅限无换行的空白字符（Spaces 和 Tabs），不能跨空行。
+# 1. 紧贴排列：{.c1}{.c2}（最常见的无缝连接）。
+# 2. 同行空格/Tab：{.c1}   {.c2}（合法，视为连续属性）。
+# 3. 普通换行：在块级属性中，只要中间没有空行（Blank Line），换行也是允许的（如连续两行的属性块）。
+# 4. 遇空行中断：如果属性块之间出现了空行，或者遇到了非空白的普通文本，属性链条即宣告终止。
+
+def is_inline_space(ch: str) -> bool:
+    return ch in " \t"
+
+def scan_attribute_chain(src: str, start_pos: int):
+    i = start_pos
+    n = len(src)
+
+    while i < n and src[i] == '{':
+        # 寻找当前这组 '{...}' 的闭合位置
+        end_pos = find_attribute_end(src, i)
+        if end_pos == -1:
+            break
+
+        # 游标移动到当前 '}' 的下一位
+        i = end_pos + 1
+
+        # 跳过属性块之间的空白字符（Spaces, Tabs, 甚至非空行的换行）
+        lookahead = i
+        while lookahead < n and is_ascii_whitespace(src[lookahead]):
+            # 如果遇到连续两个换行（即空行），说明属性块链终止
+            if src[lookahead] == '\n' and lookahead + 1 < n and src[lookahead + 1] == '\n':
+                break
+            lookahead += 1
+
+        # 如果跳过空白后紧接着又是 '{'，则继续下一轮循环
+        if lookahead < n and src[lookahead] == '{':
+            i = lookahead
+        else:
+            # 后面不是属性块了，退出循环
+            break
+
+    return i
