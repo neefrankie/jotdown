@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from .element import Atom, Container
 
-@dataclass
+@dataclass(slots=True)
 class Range:
     start: int
     end: int
@@ -26,32 +26,32 @@ class EventKind(ABC):
     pass
 
 @dataclass
-class EventKindEnter(EventKind):
+class EnterEvent(EventKind):
     container: Container
 
 @dataclass
-class EventKindExit(EventKind):
+class ExitEvent(EventKind):
     container: Container
 
 @dataclass
-class EventKindAtom(EventKind):
+class AtomEvent(EventKind):
     atom: Atom
 
 @dataclass
-class EventKindStr(EventKind):
+class StrEvent(EventKind):
     pass
 
 @dataclass
-class EventKindEmpty(EventKind):
+class EmptyEvent(EventKind):
     pass
 
 @dataclass
-class EventKindAttrs(EventKind):
+class AttrbutesEvent(EventKind):
     container: bool
     attrs_index: int
 
 @dataclass
-class EventKindPlaceholder(EventKind):
+class PlaceholderEvent(EventKind):
     pass
 
 @dataclass
@@ -61,4 +61,4 @@ class Event:
 
     @property
     def is_str(self) -> bool:
-        return isinstance(self.kind, EventKindStr)
+        return isinstance(self.kind, StrEvent)

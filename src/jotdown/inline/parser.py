@@ -5,10 +5,10 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import List, Optional, Tuple
 
-from .utils import (
+from jotdown.utils import (
     is_ascii_whitespace
 )
-from .lex import (
+from jotdown.lex.lex import (
     Lexer,
     Token,
     Delimiter,
@@ -18,8 +18,8 @@ from .lex import (
     SequenceToken,
     SymbolKind,
 )
-from .attr import Attributes, Validator
-from .event import (
+from jotdown.attr import Attributes, Validator
+from jotdown.event import (
     EventKind,
     Range,
     Event,
@@ -29,7 +29,7 @@ from .event import (
     EventKindStr,
     EventKindAtom,
 )
-from .element import (
+from jotdown.element import (
     Container,
     Verbatim,
     RawFormat,
@@ -41,225 +41,16 @@ from .element import (
     FootnoteReference,
 )
 
-class Directionality(Enum):
-    UNI = auto()
-    BI = auto()
-
-class SpanType(Enum):
-    IMAGE = auto()
-    GENERAL = auto()
-
-class Opener(ABC):
-
-    @abstractmethod
-    def close_by(self, tok: Token) -> bool:
-        pass
-
-@dataclass
-class SpanOpener(Opener):
-    """
-    [read the manual]{.big .red}
-    """
-    typ: SpanType
-
-    def close_by(self, tok: Token) -> bool:
-        match tok:
-            case CloseToken(delimiter=Delimiter.BRACKET): # ]
-                return True
-            case _:
-                return False
-
-@dataclass
-class DirectionalOpener(Opener, ABC):
-    direction: Directionality
-
-    def bidirectional(self) -> bool:
-        return self.direction == Directionality.BI
-
-@dataclass
-class StrongOpener(DirectionalOpener):
-    """
-    * or {*
-    """
-
-    def close_by(self, tok: Token) -> bool:
-        match tok:
-            case SymToken(symbol=SymbolKind.ASTERISK) if self.direction == Directionality.BI: # *
-                return True
-            case CloseToken(delimiter=Delimiter.BRACE_ASTERISK) if self.direction == Directionality.UNI: # *}
-                return True
-
-            case _:
-                return False
-
-@dataclass
-class EmphasisOpener(DirectionalOpener):
-    def close_by(self, tok: Token) -> bool:
-        match tok:
-            case SymToken(symbol=SymbolKind.UNDERSCORE) if self.direction == Directionality.BI: # _
-                return True
-            case CloseToken(delimiter=Delimiter.BRACE_UNDERSCORE) if self.direction == Directionality.UNI: # _}
-                return True
-    
-            case _:
-                return False
-
-@dataclass
-class SuperscriptOpener(DirectionalOpener):
-    def close_by(self, tok: Token) -> bool:
-        match tok:
-            case SymToken(symbol=SymbolKind.CARET) if self.direction == Directionality.BI: # ^
-                return True
-            case CloseToken(delimiter=Delimiter.BRACE_CARET) if self.direction == Directionality.UNI: # ^}
-                return True
-    
-            case _:
-                return False
-
-@dataclass
-class SubscriptOpener(DirectionalOpener):
-    def close_by(self, tok: Token) -> bool:
-        match tok:
-            case SymToken(symbol=SymbolKind.TILDE) if self.direction == Directionality.BI: # ~
-                return True
-            case CloseToken(delimiter=Delimiter.BRACE_TILDE) if self.direction == Directionality.UNI: # ~}
-                return True
-    
-            case _:
-                return False
-
-@dataclass
-class MarkOpener(Opener):
-    def close_by(self, tok: Token) -> bool:
-        match tok:
-            case CloseToken(delimiter=Delimiter.BRACE_EQUAL): # =}
-                return True
-    
-            case _:
-                return False
-
-@dataclass
-class DeleteOpener(Opener):
-    def close_by(self, tok: Token) -> bool:
-        match tok:
-            case CloseToken(delimiter=Delimiter.BRACE_HYPHEN): # -}
-                return True
-    
-            case _:
-                return False
-
-@dataclass
-class InsertOpener(Opener):
-    def close_by(self, tok: Token) -> bool:
-        match tok:
-            case CloseToken(delimiter=Delimiter.BRACE_PLUS): # +}
-                return True
-    
-            case _:
-                return False
-
-@dataclass
-class SingleQuotedOpener(Opener):
-    def close_by(self, tok: Token) -> bool:
-        match tok:
-            case SymToken(symbol=SymbolKind.QUOTE1) | CloseToken(delimiter=Delimiter.BRACE_QUOTE1): # ' or '}
-                return True
-    
-            case _:
-                return False
-
-@dataclass
-class DoubleQuotedOpener(Opener):
-    def close_by(self, tok: Token) -> bool:
-        match tok:
-            case SymToken(symbol=SymbolKind.QUOTE2) | CloseToken(delimiter=Delimiter.BRACE_QUOTE2): # " or "}
-                return True
-    
-            case _:
-                return False
-
-@dataclass
-class LinkOpener(Opener):
-    event_span: int
-    image: bool
-    inline: bool
-
-    def close_by(self, tok: Token) -> bool:
-        match tok:
-            case CloseToken(delimiter=Delimiter.BRACKET) if not self.inline: 
-                return True
-            case CloseToken(delimiter=Delimiter.PAREN) if self.inline:
-                return True
-    
-            case _:
-                return False
-
-def opener_from_token(tok: Token) -> Optional[Opener]:
-    match tok:
-        case SymToken(symbol=SymbolKind.ASTERISK): # *
-            return StrongOpener(Directionality.BI)
-        case SymToken(symbol=SymbolKind.UNDERSCORE): # _
-            return EmphasisOpener(Directionality.BI)
-        case SymToken(symbol=SymbolKind.CARET): # ^
-            return SuperscriptOpener(Directionality.BI)
-        case SymToken(symbol=SymbolKind.TILDE): # ~
-            return SubscriptOpener(Directionality.BI)
-        case SymToken(symbol=SymbolKind.QUOTE1): # '
-            return SingleQuotedOpener()
-        case SymToken(symbol=SymbolKind.QUOTE2): # "
-            return DoubleQuotedOpener()
-        case SymToken(symbol=SymbolKind.EXCLAIM_BRACKET): # ![
-            return SpanOpener(SpanType.IMAGE)
-        case OpenToken(delimiter=Delimiter.BRACKET): # [
-            # [read the manaual]{.big .red}
-            return SpanOpener(SpanType.GENERAL)
-        case OpenToken(delimiter=Delimiter.BRACE_ASTERISK): # {*
-            return StrongOpener(Directionality.UNI)
-        case OpenToken(delimiter=Delimiter.BRACE_UNDERSCORE): # {-
-            return EmphasisOpener(Directionality.UNI)
-        case OpenToken(delimiter=Delimiter.BRACE_CARET): # {^
-            return SuperscriptOpener(Directionality.UNI)
-        case OpenToken(delimiter=Delimiter.BRACE_TILDE): # {~
-            return SubscriptOpener(Directionality.UNI)
-        case OpenToken(delimiter=Delimiter.BRACE_EQUAL): # {=
-            return MarkOpener()
-        case OpenToken(delimiter=Delimiter.BRACE_HYPHEN): # {-
-            return DeleteOpener()
-        case OpenToken(delimiter=Delimiter.BRACE_PLUS): # {+
-            return InsertOpener()
-        case OpenToken(delimiter=Delimiter.BRACE_QUOTE1): # {'
-            return SingleQuotedOpener()
-        case OpenToken(delimiter=Delimiter.BRACE_QUOTE2): # {"
-            return DoubleQuotedOpener()
-
-@dataclass
-class VerbatimState:
-    event_opener: int # Index in events list.
-    # length of opener Token, e.g. the number of backtick.
-    # It is remembered because later we need to compare closing
-    # token against it.
-    len_opener: int
-    non_whitespace_encountered: bool
-    non_whitespace_last: Optional[Tuple[Token, int]]
-
-
-class AttrsElementType(ABC):
-    pass
-
-@dataclass
-class AttrsElementContainer(AttrsElementType):
-    event_placdeholder_idx: int
-
-@dataclass
-class AttrsElementWord(AttrsElementType):
-    pass
-
-@dataclass
-class AttributesState:
-    elem_ty: AttrsElementType
-    end_attr: int
-    valid_lines: int
-    validator: Validator
+from .input import Input
+from .opener import (
+    Opener,
+)
+from .state import (
+    VerbatimState,
+    AttributesState,
+    AttrsElementContainer,
+    AttrsElementType,
+)
 
 class ControlFlow(Enum):
     # At least one event has been emitted, continue parsing the line
@@ -274,218 +65,23 @@ class ControlFlow(Enum):
     # Parsing of the line is completed.
     DONE = auto()
 
-class Input:
-    def __init__(self, src: str):
-        self.src = src
-        self.lexer = Lexer("")
-        # The block is complete, the final line has been provided.
-        self.complete: bool = False
-        # Span of current line.
-        self.span_line: Range = Range(0, 0)
-        # Upcoming lines within the current block.
-        self.ahead: deque[Range] = deque()
-        # Span of current event
-        self.span: Range = Range(0, 0)
-
-    def feed_line(self, line: Range, last: bool):
-        assert not self.complete
-        self.complete = last
-        if not self.lexer.ahead():
-            if self.ahead:
-                nxt = self.ahead.popleft()
-                self.set_current_line(nxt)
-                self.ahead.append(line)
-            else:
-                self.set_current_line(line)
-        else:
-            self.ahead.append(line)
-
-        
-    def set_current_line(self, line: Range):
-        self.lexer = Lexer(self.src[line.start:line.end])
-        self.span = Range(line.start, line.start)
-        self.span_line = line
-
-    def reset(self):
-        self.lexer = Lexer("")
-        self.complete = False
-        self.ahead.clear()
-
-    def last(self) -> bool:
-        return self.complete and len(self.ahead) == 0
-
-    def eat(self) -> Optional[Token]:
-        """
-        Consume the next token in lexer and extend current span.
-        """
-        tok = next(self.lexer, None)
-        if tok is not None:
-            self.span.end += tok.length
-        return tok
-
-    def peek(self) -> Optional[Token]:
-        """
-        Get the next token from lexer.
-        """
-        self.lexer.peek()
-
-    def reset_span(self):
-        self.span.start = self.span.end
-
-    def ahead_raw_format(self) -> Optional[Range]:
-        """
-        Example:
-
-        `<?php ehco 'Hello world!' ?>`{=html}
-        """
-        tok = self.lexer.peek()
-        if tok is None:
-            return None
-        if not isinstance(tok, OpenToken):
-            return None
-        if not tok.is_brace_equal: # {=
-            return None
-
-        # Now the cursor is move after {=.
-        # However we need to process this token starting from {.
-        
-        ahead_str = self.lexer.ahead()
-        if len(ahead_str) <= 2:
-            return None
-
-        is_end = False
-        start = 2
-        end = start
-        while True:
-            ch = ahead_str[end]
-            if ch == '{':
-                break
-
-            if ch == '}' or is_ascii_whitespace(ch):
-                break
-
-            end += 1
-
-        l = end - start
-        if l > 0 and ahead_str[end] == '}':
-            tok = self.eat() # consume this token
-            assert isinstance(tok, OpenToken)
-            assert tok.delimiter == Delimiter.BRACE_EQUAL
-            assert tok.length == 2
-
-            # the cursor is pointing to the the position after `{=`.
-            # end is point to `}`.
-            # Now move position after `}`
-            self.lexer.skip_ahead(l + 1)
-            return Range(
-                start=self.span.end,
-                end=self.span.end + l
-            )
-
-        return None
-
-    def ahead_symbol_len(self) -> Optional[int]:
-        # :smiley:
-        # The first : is processed now.
-        ended = False
-        valid = True
-
-        # NOTE the index is only valid for lexer.
-        # This is not the index in the full source document.
-        start_idx = self.lexer.next_token_start()
-        end_idx = start_idx
-
-        while end_idx < self.lexer.length:
-            ch = self.lexer.src[end_idx]
-            if ch == ':':
-                ended = True
-                break
-            if is_ascii_whitespace(ch):
-                break
-
-            if ch in '-+_':
-                valid = False
-
-            end_idx += 1
-
-        if not ended or not valid:
-            return None
-
-        # Now end_idx point to closing :
-        l = end_idx - start_idx
-
-        return l
-
-    def ahead_autolink_len(self) -> Optional[int]:
-        ended = False
-        is_url = False
-
-        start_idx = self.lexer.next_token_start()
-        end_idx = start_idx
-
-        while end_idx < self.lexer.length:
-            ch = self.lexer.src[end_idx]
-            if ch == '>':
-                ended = True
-                break
-            if ch == '<':
-                break
-            if is_ascii_whitespace(ch):
-                break
-
-            if ch in ':@':
-                is_url = True
-
-            end_idx += 1
-
-        if not ended or not is_url:
-            return None
-
-        l = end_idx - start_idx
-
-        return l
-
-    def ahead_footnote_reference(self) -> Optional[int]:
-        """
-        Parse footnote content and returns its length.
-        Position is pointing to the char after caret in [^ now.
-        """
-
-        ended = False
-        start_idx = self.lexer.next_token_start()
-        end_idx = start_idx
-        while end_idx < self.lexer.length:
-            ch = self.lexer.src[end_idx]
-            if ch == ']':
-                ended = True
-                break
-            if ch == '[':
-                break
-            if ch == '\n':
-                break
-
-        if not ended:
-            return None
-
-        return end_idx - start_idx
-
-
-
-
-
-
 class InlineParser:
     def __init__(self, src: str):
         self._input = Input(src)
+
         # Stack of opener and index for containers.
         self._openers: List[Tuple[Opener, int]]
+
         # Buffer queue for next events. Events are buffered until no
         # modifications due to future characters are needed.
         self._events: List[Event] = []
+
         # State if inside a verbatim container.
         self._verbatim: Optional[VerbatimState] = None
+
         # State if currently parsing potential attributes.
         self._attributes: Optional[AttributesState] = None
+
         self.store_str: List[str] = []
         self.store_attributes: List[Attributes] = []
 
@@ -868,5 +464,3 @@ class InlineParser:
         label = self._input.src[span_label.to_slice()]
         self._input.span.end = span_label.end + 1
         return self._push(EventKindAtom(FootnoteReference(label)))
-
-        

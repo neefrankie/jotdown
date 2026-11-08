@@ -17,18 +17,6 @@ class Delimiter(Enum):
     BRACE_QUOTE2 = auto() # {"
     PAREN = auto() # (
 
-braced_delimiters = {
-    '*': Delimiter.BRACE_ASTERISK, # strong
-    '^': Delimiter.BRACE_CARET, # superscript
-    '=': Delimiter.BRACE_EQUAL, # highlighed
-    '-': Delimiter.BRACE_HYPHEN, # delete
-    '+': Delimiter.BRACE_PLUS, # insert
-    '~': Delimiter.BRACE_TILDE, # subscript
-    '_': Delimiter.BRACE_UNDERSCORE, # emphasis
-    '\'': Delimiter.BRACE_QUOTE1,
-    '"': Delimiter.BRACE_QUOTE2,
-}
-
 class SymbolKind(Enum):
     ASTERISK = auto() # *
     CARET = auto() # ^
@@ -47,31 +35,31 @@ class SeqKind(StrEnum):
     PERIOD = '.'
 
 
-@dataclass
+@dataclass(slots=True)
 class Token(ABC):
     length: int
 
-@dataclass
+@dataclass(slots=True)
 class TextToken(Token):
     pass
 
-@dataclass
+@dataclass(slots=True)
 class NewlineToken(Token):
     pass
 
-@dataclass
+@dataclass(slots=True)
 class NbspToken(Token):
     pass
 
-@dataclass
+@dataclass(slots=True)
 class HardbreakToken(Token):
     pass
 
-@dataclass
+@dataclass(slots=True)
 class EscapeToken(Token):
     pass
 
-@dataclass
+@dataclass(slots=True)
 class DelimiterToken(Token, ABC):
     delimiter: Delimiter
 
@@ -87,15 +75,15 @@ class DelimiterToken(Token, ABC):
     def is_bracket(self) -> bool:
         return self.delimiter == Delimiter.BRACKET
 
-@dataclass
+@dataclass(slots=True)
 class OpenToken(DelimiterToken):
     pass
 
-@dataclass
+@dataclass(slots=True)
 class CloseToken(DelimiterToken):
     pass
 
-@dataclass
+@dataclass(slots=True)
 class SymToken(Token):
     symbol: SymbolKind
 
@@ -111,7 +99,7 @@ class SymToken(Token):
     def is_caret(self):
         return self.symbol == SymbolKind.CARET
 
-@dataclass
+@dataclass(slots=True)
 class SequenceToken(Token):
     sequence: SeqKind
 

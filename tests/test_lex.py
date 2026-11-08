@@ -1,9 +1,9 @@
 import unittest
 
-from jotdown.lex import (
+from jotdown.lex.lex import (
     Lexer,
 )
-from jotdown.token import (
+from jotdown.lex.token import (
     Delimiter,
     SymbolKind,
     SeqKind,

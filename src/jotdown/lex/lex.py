@@ -1,12 +1,11 @@
 from typing import Callable, Optional
 
-from .utils import (
+from ..utils import (
     is_ascii_whitespace,
     is_ascii_punctuation,
 )
 from .token import (
     Delimiter,
-    braced_delimiters,
     SymbolKind,
     SeqKind,
     Token,
@@ -20,6 +19,18 @@ from .token import (
     SymToken,
     SequenceToken,
 )
+
+braced_delimiters = {
+    '*': Delimiter.BRACE_ASTERISK, # strong
+    '^': Delimiter.BRACE_CARET, # superscript
+    '=': Delimiter.BRACE_EQUAL, # highlighed
+    '-': Delimiter.BRACE_HYPHEN, # delete
+    '+': Delimiter.BRACE_PLUS, # insert
+    '~': Delimiter.BRACE_TILDE, # subscript
+    '_': Delimiter.BRACE_UNDERSCORE, # emphasis
+    '\'': Delimiter.BRACE_QUOTE1,
+    '"': Delimiter.BRACE_QUOTE2,
+}
 
 class Lexer:
 

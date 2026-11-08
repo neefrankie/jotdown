@@ -122,7 +122,7 @@ class InlineLink(Container):
     index: int
 
 @dataclass
-class inlineImage(Container):
+class InlineImage(Container):
     index: int
 
 @dataclass
