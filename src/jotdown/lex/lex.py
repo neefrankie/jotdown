@@ -125,7 +125,7 @@ class Lexer:
 
         self._eat_while(lambda c: c not in self._SPECIAL_CHARS)
         # If eat_while actually moved pos...
-        if self._pos > start:
+        if start < self._pos:
             return TextToken(
                 length=self._pos-start,
             )
@@ -309,6 +309,9 @@ class Lexer:
         return None
     
     def _eat_char(self) -> Optional[str]:
+        """
+        Consume conrrent char and advance cursor to next position.
+        """
         if self._pos < self.length:
             c = self.src[self._pos]
             self._pos += 1
