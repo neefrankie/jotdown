@@ -1,7 +1,4 @@
-from abc import ABC, abstractmethod
-from collections import deque
 import copy
-from dataclasses import dataclass
 from enum import Enum, auto
 from typing import List, Optional, Tuple
 
@@ -9,27 +6,23 @@ from jotdown.utils import (
     is_ascii_whitespace
 )
 from jotdown.lex.lex import (
-    Lexer,
     Token,
-    Delimiter,
     OpenToken,
-    CloseToken,
     SymToken,
     SequenceToken,
-    SymbolKind,
 )
 from jotdown.attr import Attributes, Validator
-from jotdown.event import (
+from .event import (
     EventKind,
     Range,
     Event,
-    EventKindEnter,
-    EventKindExit,
-    EventKindPlaceholder,
-    EventKindStr,
-    EventKindAtom,
+    EnterEvent,
+    ExitEvent,
+    PlaceholderEvent,
+    StrEvent,
+    AtomEvent,
 )
-from jotdown.element import (
+from .element import (
     Container,
     Verbatim,
     RawFormat,
@@ -125,7 +118,7 @@ class InlineParser:
         
         # Ensure the opening event is not Placeholder.
         opener_event = self._events[state.event_opener].kind
-        if not isinstance(opener_event, EventKindEnter):
+        if not isinstance(opener_event, EnterEvent):
             raise Exception('Expected enter event')
         
         ty_opener = opener_event.container
@@ -136,7 +129,7 @@ class InlineParser:
             if isinstance(tok, SequenceToken) and tok.is_backtick:
                del self._events[:event_skip]
         
-        self._push(EventKindExit(ty_opener))
+        self._push(ExitEvent(ty_opener))
         self._input.lexer.verbatim = False
         self._verbatim = None
         
@@ -156,7 +149,7 @@ class InlineParser:
 
     def _set_raw_format(self, state: VerbatimState, raw_format: Range):
         # Find the opening event and update its kind from placeholder to concrete type.
-        self._events[state.event_opener].kind = EventKindEnter(
+        self._events[state.event_opener].kind = EnterEvent(
             container=RawFormat(
                 format=self._input.src[raw_format.to_slice()]
             )
@@ -197,7 +190,7 @@ class InlineParser:
             state.non_whitespace_encountered = True
             state.non_whitespace_last = (first, len(self._events) + 1)
         
-        self._push(EventKindStr())
+        self._push(StrEvent())
 
         return ControlFlow.CONTINUE
 
@@ -237,7 +230,7 @@ class InlineParser:
         container = self._backtrace_math_span()
         
         self._push_span(
-            kind=EventKindPlaceholder(),
+            kind=PlaceholderEvent(),
             span=Range(
                 start=self._input.span.start,
                 end=self._input.span.start
@@ -251,7 +244,7 @@ class InlineParser:
             non_whitespace_last=None,
         )
         self._attributes = None
-        return self._push(EventKindEnter(container))
+        return self._push(EnterEvent(container))
 
     def _backtrace_math_span(self) -> Container:
         """
@@ -362,7 +355,7 @@ class InlineParser:
         if first:
             line_next = 0
             line_start = start_attr
-            line_end = self._input.span_line.end
+            line_end = self._input.line_span.end
         else:
             line_next = len(self._input.ahead)
             last_line = self._input.ahead[-1]
@@ -391,14 +384,14 @@ class InlineParser:
         )
         url = self._input.src[span_url.to_slice()]
         
-        self._push(EventKindEnter(AutoLink(url)))
+        self._push(EnterEvent(AutoLink(url)))
         self._input.span = span_url
-        self._push(EventKindStr())
+        self._push(StrEvent())
         self._input.span = Range(
             start=self._input.span.end, # The closing >
             end=self._input.span.end + 1
         )
-        return self._push(EventKindExit(AutoLink(url)))
+        return self._push(ExitEvent(AutoLink(url)))
 
     def _parse_symbol(self, first: Token) -> Optional[ControlFlow]:
         """
@@ -426,7 +419,7 @@ class InlineParser:
 
         symbol = self._input.src[span_symbol.to_slice()]
 
-        return self._push(EventKindAtom(Symbol(symbol)))
+        return self._push(AtomEvent(Symbol(symbol)))
 
     def _parse_footnote_reference(self, first: Token) -> Optional[ControlFlow]:
         """
@@ -463,4 +456,4 @@ class InlineParser:
         )
         label = self._input.src[span_label.to_slice()]
         self._input.span.end = span_label.end + 1
-        return self._push(EventKindAtom(FootnoteReference(label)))
+        return self._push(AtomEvent(FootnoteReference(label)))

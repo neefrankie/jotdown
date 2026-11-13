@@ -16,15 +16,22 @@ from .event import (
 
 
 class Input:
+    """
+    Input handles the cursor of the whole document.
+    """
     def __init__(self, src: str):
         self.src = src
         self.lexer = Lexer("")
+
         # The block is complete, the final line has been provided.
         self.complete: bool = False
+
         # Span of current line.
-        self.span_line: Range = Range(0, 0)
+        self.line_span: Range = Range(0, 0)
+
         # Upcoming lines within the current block.
         self.ahead: deque[Range] = deque()
+        
         # Span of current event
         self.span: Range = Range(0, 0)
 
@@ -33,8 +40,12 @@ class Input:
         self.complete = last
         if not self.lexer.ahead():
             if self.ahead:
-                nxt = self.ahead.popleft()
-                self.set_current_line(nxt)
+                # If there are lines in queue,
+                # consume the queued line first
+                # and queue the new line.
+                next_line = self.ahead.popleft()
+                self.set_current_line(next_line)
+                # Quue the new line
                 self.ahead.append(line)
             else:
                 self.set_current_line(line)
@@ -43,9 +54,10 @@ class Input:
 
         
     def set_current_line(self, line: Range):
+        # Lexer of current line.
         self.lexer = Lexer(self.src[line.start:line.end])
         self.span = Range(line.start, line.start)
-        self.span_line = line
+        self.line_span = line
 
     def reset(self):
         self.lexer = Lexer("")
@@ -87,17 +99,16 @@ class Input:
         if not tok.is_brace_equal: # {=
             return None
 
-        # Now the cursor is move after {=.
+        # Now the cursor move after {=.
         # However we need to process this token starting from {.
         
         ahead_str = self.lexer.ahead()
         if len(ahead_str) <= 2:
             return None
 
-        is_end = False
         start = 2
         end = start
-        while True:
+        while end < len(ahead_str):
             ch = ahead_str[end]
             if ch == '{':
                 break

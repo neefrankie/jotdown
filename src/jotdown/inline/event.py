@@ -21,27 +21,27 @@ class Range:
         return slice(self.start, self.end)
 
     
-@dataclass
+@dataclass(slots=True)
 class EventKind(ABC):
     pass
 
-@dataclass
+@dataclass(slots=True)
 class EnterEvent(EventKind):
     container: Container
 
-@dataclass
+@dataclass(slots=True)
 class ExitEvent(EventKind):
     container: Container
 
-@dataclass
+@dataclass(slots=True)
 class AtomEvent(EventKind):
     atom: Atom
 
-@dataclass
+@dataclass(slots=True)
 class StrEvent(EventKind):
     pass
 
-@dataclass
+@dataclass(slots=True)
 class EmptyEvent(EventKind):
     pass
 
@@ -50,11 +50,11 @@ class AttrbutesEvent(EventKind):
     container: bool
     attrs_index: int
 
-@dataclass
+@dataclass(slots=True)
 class PlaceholderEvent(EventKind):
     pass
 
-@dataclass
+@dataclass(slots=True)
 class Event:
     kind: EventKind
     span: Range

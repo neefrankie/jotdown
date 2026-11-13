@@ -37,7 +37,7 @@ class Lexer:
     _SPECIAL_CHARS = set('\\[](){}*^=+~_\'"-!<|:`.\n')
 
     def __init__(self, src: str):
-        self.src: str = src
+        self.src: str = src # a line of text
         self._pos: int = 0
         self._escape: bool = False
         # _next plays two role:
@@ -69,7 +69,7 @@ class Lexer:
         of the token being 'peeked' since the cursor has
         already been moved forward by peeking.
         The ahead method backtracing the starting position
-        of the token being 'peeked'. 
+        of the token being 'peeked'.
         """
         if self._next is None:
             self._next = self._token()
@@ -117,20 +117,21 @@ class Lexer:
         return current
 
     def _token(self) -> Optional[Token]:
-            start = self._pos
-    
-            # 当 Lexer 遇到一个反斜杠 \ 时，它会设置 self.escape = true，表示下一个字符需要被特殊对待。
-            if self._escape:
-                return self._escaped_token(start)
-    
-            self._eat_while(lambda c: c not in self._SPECIAL_CHARS)
-            # If eat_while actually moved pos...
-            if start < self._pos:
-                return TextToken(
-                    length=self._pos-start,
-                )
-    
-            return self._special_token(start)
+        start = self._pos
+
+        # 当 Lexer 遇到一个反斜杠 \ 时，它会设置 self.escape = true，表示下一个字符需要被特殊对待。
+        if self._escape:
+            return self._escaped_token(start)
+
+        self._eat_while(lambda c: c not in self._SPECIAL_CHARS)
+        # If eat_while actually moved pos...
+        if self._pos > start:
+            return TextToken(
+                length=self._pos-start,
+            )
+            
+        # Consume special char
+        return self._special_token(start)
 
     def _escaped_token(self, start: int) -> Optional[Token]:
         self._escape = False
@@ -302,13 +303,13 @@ class Lexer:
 
     def _peek_char(self, n: int = 0) -> Optional[str]:
         idx = self._pos + n
-        if idx < len(self.src):
+        if idx < self._length:
             return self.src[idx]
 
         return None
     
     def _eat_char(self) -> Optional[str]:
-        if self._pos < len(self.src):
+        if self._pos < self.length:
             c = self.src[self._pos]
             self._pos += 1
             return c
