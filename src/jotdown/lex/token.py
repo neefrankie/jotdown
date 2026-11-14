@@ -29,6 +29,7 @@ class SymbolKind(Enum):
     UNDERSCORE = auto() # _
     COLON = auto() # :
 
+
 class SeqKind(StrEnum):
     BACKTICK = '`'
     HYPHEN = '-'
@@ -79,9 +80,15 @@ class DelimiterToken(Token, ABC):
 class OpenToken(DelimiterToken):
     pass
 
+    def __repr__(self) -> str:
+        return f"OpenToken({self.length}, {self.delimiter.name})"
+
 @dataclass(slots=True)
 class CloseToken(DelimiterToken):
     pass
+
+    def __repr__(self) -> str:
+        return f"CloseToken({self.length}, {self.delimiter.name})"
 
 @dataclass(slots=True)
 class SymToken(Token):

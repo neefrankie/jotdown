@@ -35,6 +35,7 @@ braced_delimiters = {
 class Lexer:
 
     _SPECIAL_CHARS = set('\\[](){}*^=+~_\'"-!<|:`.\n')
+    _SPACE_TAB = ' \t'
 
     def __init__(self, src: str):
         self.src: str = src # a line of text
@@ -52,6 +53,73 @@ class Lexer:
     @property
     def length(self) -> int:
         return self._length
+
+    def char_at(self, pos: int) -> Optional[str]:
+        if pos < self.length:
+            return self.src[pos]
+        else:
+            return None
+
+    def find_special(self, pos: int) -> int:
+        if self.char_at(pos) in self._SPECIAL_CHARS:
+            return pos
+        
+        while pos < self.length:
+            c = self.src[pos]
+            if c in self._SPECIAL_CHARS:
+                return pos
+            self._pos += 1
+
+        return pos
+
+    def step(self, n: int = 1) -> bool:
+        if n < 0 :
+            raise Exception('Cannot go back')
+
+        if n == 0:
+            return True
+        
+        if self._pos < self.length:
+            self._pos += n
+            return True
+
+        self._pos += n
+        return False
+
+    def is_close_brace_followed(self, pos: int) -> bool:
+        return self.src[pos + 1] == '}'
+
+    def read_hyphen(self, start: int) -> int:
+        i = start
+        while self.char_at(i) == '-' and self.char_at(i + 1) != '}':
+            i += 1
+
+        return i - start
+
+    def read_seq(self, pos: int, ch: str) -> int:
+        """Count consecutive chars"""        
+        if self.src[pos] != ch:
+            return 0
+        
+        i = pos
+        
+        while i < self.length and self.src[i] == ch:
+            i += 1
+        
+        return i - pos
+            
+    def is_ahead_blank(self) -> bool:
+        i = self._pos
+        while i < self.length:
+            c = self.src[i]
+            if c in self._SPACE_TAB:
+                i += 1
+            elif c == '\n':
+                return True
+            else:
+                return False # non-space
+
+        return False
 
     def peek(self) -> Optional[Token]:
         """
@@ -84,19 +152,19 @@ class Lexer:
         token_processed token_will_be_process pos_here
         If _next is None:
         token_processed pos_here
+        uncomsumed_text
         """
         l = self._next.length if self._next else 0
         start = self._pos - l
         return self.src[start:]
 
-    def next_token_start(self) -> int:
-        l = self._next.length if self._next else 0
-        return self._pos - l
-
-
     def skip_ahead(self, n: int):
         self._pos += n
         self._next = None
+
+    def next_token_start(self) -> int:
+        l = self._next.length if self._next else 0
+        return self._pos - l
 
     def _next_token(self) -> Optional[Token]:
         current = self._token()
@@ -144,7 +212,7 @@ class Lexer:
                 return HardbreakToken(self._pos - start)
             case '\t' | ' ':
                 # \'\t' | ' '
-                if self._is_next_non_space_newline():
+                if self.is_ahead_blank():
                     while self._eat_char() != '\n':
                         pass
                     return HardbreakToken(self._pos - start)
@@ -293,13 +361,7 @@ class Lexer:
             case _:
                 return TextToken(self._pos - start, )
 
-    def _is_next_non_space_newline(self) -> bool:
-        """检查从当前位置到下一个非空格/制表符的字符是否是换行符"""
-        for i in range(self._pos, len(self.src)):
-            ch = self.src[i]
-            if ch not in (' ', '\t'):
-                return ch == '\n'
-        return False  # All space after _pos
+    
 
     def _peek_char(self, n: int = 0) -> Optional[str]:
         idx = self._pos + n

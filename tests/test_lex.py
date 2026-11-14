@@ -96,7 +96,7 @@ class TestLexer(unittest.TestCase):
         for text, expected in cases:
             lex = Lexer(text)
             self.assertEqual(
-                lex._is_next_non_space_newline(),
+                lex.is_ahead_blank(),
                 expected
             )
 
