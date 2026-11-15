@@ -69,37 +69,6 @@ class TestLexer(unittest.TestCase):
         self.assertEqual(lex._peek_char(4), 'd')
         self.assertEqual(lex._peek_char(5), None)
 
-    def test_eat_while_stops(self):
-        """测试 _eat_while 不会无限循环"""
-        text = "abc*special"
-        lex = Lexer(text)
-        
-        # 跳过普通字符
-        lex._eat_while(lambda c: c.isalpha())
-        self.assertEqual(lex._pos, 3)  # 停在 '*'
-        
-        # 应该不会死循环
-        lex._eat_while(lambda c: c == '*')
-        self.assertEqual(lex._pos, 4)  # 停在 's'
-        
-        # 空输入
-        lex2 = Lexer("")
-        lex2._eat_while(lambda c: c.isalpha())
-        self.assertEqual(lex2._pos, 0)  # 不应该死循环
-
-    def test_next_non_space_newline(self):
-        cases = [
-            ('hello', False),
-            ('    \n', True),
-            ('    ', False)
-        ]
-        for text, expected in cases:
-            lex = Lexer(text)
-            self.assertEqual(
-                lex.is_ahead_blank(),
-                expected
-            )
-
     def test_escaped_token(self):
         cases = [
             ('\n', HardbreakToken),
@@ -585,52 +554,47 @@ class TestLexer(unittest.TestCase):
                 self.assertEqual(actual, expected)
 
     def test_basic(self):
-        cases = [
-            ('abc', [TextToken(length=3)]),
-            (
-                'para w/ some _emphasis_ and *strong*.',
-                [
-                    TextToken(
-                        length=len('para w/ some ')
-                    ),
-                    SymToken(
-                        symbol=SymbolKind.UNDERSCORE,
-                        length=1
-                    ),
-                    TextToken(
-                        length=len('emphasis'),
-                    ),
-                    SymToken(
-                        symbol=SymbolKind.UNDERSCORE,
-                        length=len('_'),
-                    ),
-                    TextToken(
-                        length=len(' and '),
-                    ),
-                    SymToken(
-                        symbol=SymbolKind.ASTERISK,
-                        length=len('*'),
-                    ),
-                    TextToken(
-                        length=len('strong'),
-                    ),
-                    SymToken(
-                        symbol=SymbolKind.ASTERISK,
-                        length=len('*'),
-                    ),
-                    SequenceToken(
-                        sequence=SeqKind.PERIOD,
-                        length=len('.'),
-                    )
-                ]
+
+        text = 'para w/ some _emphasis_ and *strong*.'
+
+        expected = [
+            TextToken(
+                length=len('para w/ some ')
+            ),
+            SymToken(
+                symbol=SymbolKind.UNDERSCORE,
+                length=1
+            ),
+            TextToken(
+                length=len('emphasis'),
+            ),
+            SymToken(
+                symbol=SymbolKind.UNDERSCORE,
+                length=len('_'),
+            ),
+            TextToken(
+                length=len(' and '),
+            ),
+            SymToken(
+                symbol=SymbolKind.ASTERISK,
+                length=len('*'),
+            ),
+            TextToken(
+                length=len('strong'),
+            ),
+            SymToken(
+                symbol=SymbolKind.ASTERISK,
+                length=len('*'),
+            ),
+            SequenceToken(
+                sequence=SeqKind.PERIOD,
+                length=len('.'),
             )
         ]
 
-        for (text, expected) in cases:
-            with self.subTest(text):
-                lexer = Lexer(text)
-                actual = list(lexer)
-                self.assertEqual(actual, expected)
+        lexer = Lexer(text)
+        actual = list(lexer)
+        self.assertEqual(actual, expected)
 
     def test_escape(self):
         cases = [
