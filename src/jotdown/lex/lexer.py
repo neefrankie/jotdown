@@ -35,7 +35,7 @@ braced_delimiters = {
 class Lexer:
 
     _SPACE_TAB = ' \t'
-    _SPECIAL_CHARS = set('\\[](){}*^=+~_\'"-!<|:`.\n')
+    _SPECIAL_CHARS = '\\[](){}*^=+~_\'"-!<|:`.\n'
 
     def __init__(self, src: str):
         self.src: str = src # a line of text
@@ -73,7 +73,10 @@ class Lexer:
         else:
             return None
 
-    def find_special(self, pos: int) -> int:
+    def find_special(self, pos: int) -> Optional[int]:
+        if pos >= self.length:
+            return None
+        
         if self.src[pos] in self._SPECIAL_CHARS:
             return pos
         
@@ -84,9 +87,6 @@ class Lexer:
             pos += 1
 
         return pos
-
-    def is_close_brace_followed(self, pos: int) -> bool:
-        return self.char_at(pos+1) == '}'
     
     def read_hyphen(self, start: int) -> int:
         i = start
@@ -162,6 +162,9 @@ class Lexer:
         # Depending on the special char position,
         # we may have to generate one or two tokens.
         special_pos = self.find_special(start)
+        if special_pos is None:
+            return None
+        
         if special_pos > start:
             return TextToken(
                 length=special_pos - start,
@@ -228,58 +231,58 @@ class Lexer:
                 return CloseToken(1, Delimiter.BRACE)
 
             case '*':
-                if self.is_close_brace_followed(start):
+                if self.char_at(start+1) == '}':
                     return CloseToken(2, Delimiter.BRACE_ASTERISK)
                 else:
                     return SymToken(1, SymbolKind.ASTERISK)
 
             case '^':
-                if self.is_close_brace_followed(start):
+                if self.char_at(start+1) == '}':
                     return CloseToken(2, Delimiter.BRACE_CARET)
                 else:
                     return SymToken(1, SymbolKind.CARET)
     
             case '=':
                 # If it is =}, it is highlighted; otherwise plain text.
-                if self.is_close_brace_followed(start):
+                if self.char_at(start+1) == '}':
                     return CloseToken(2, Delimiter.BRACE_EQUAL)
                 else:
                     return TextToken(1)
     
             case '+':
                 # If it is +}, this is insert; otherwise plain text.
-                if self.is_close_brace_followed(start):
+                if self.char_at(start+1) == '}':
                     return CloseToken(2, Delimiter.BRACE_PLUS)
                 else:
                     return TextToken(1)
 
             case '~':
-                if self.is_close_brace_followed(start):
+                if self.char_at(start+1) == '}':
                     return CloseToken(2, Delimiter.BRACE_TILDE)
                 else:
                     return SymToken(1, SymbolKind.TILDE)
 
             case '_':
-                if self.is_close_brace_followed(start):
+                if self.char_at(start+1) == '}':
                     return CloseToken(2, Delimiter.BRACE_UNDERSCORE)
                 else:
                     return SymToken(1, SymbolKind.UNDERSCORE)
 
             case '\'':
-                if self.is_close_brace_followed(start):
+                if self.char_at(start+1) == '}':
                     return CloseToken(2, Delimiter.BRACE_QUOTE1)
                 else:
                     return SymToken(1, SymbolKind.QUOTE1)
 
             case '"':
-                if self.is_close_brace_followed(start):
+                if self.char_at(start+1) == '}':
                     return CloseToken(2, Delimiter.BRACE_QUOTE2)
                 else:
                     return SymToken(1, SymbolKind.QUOTE2)
 
             case '-':
                 # -}
-                if self.is_close_brace_followed(start):
+                if self.char_at(start+1) == '}':
                     return CloseToken(2, Delimiter.BRACE_HYPHEN)
                 else:
                     # --} stop immediately

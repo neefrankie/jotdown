@@ -38,7 +38,7 @@ class Input:
     def feed_line(self, line: Range, last: bool):
         assert not self.complete
         self.complete = last
-        if not self.lexer.ahead():
+        if not self.lexer.unconsumed_text():
             if self.ahead:
                 # If there are lines in queue,
                 # consume the queued line first
@@ -80,7 +80,7 @@ class Input:
         """
         Get the next token from lexer.
         """
-        self.lexer.peek()
+        self.lexer.peek_token()
 
     def reset_span(self):
         self.span.start = self.span.end
@@ -91,7 +91,7 @@ class Input:
 
         `<?php ehco 'Hello world!' ?>`{=html}
         """
-        tok = self.lexer.peek()
+        tok = self.lexer.peek_token()
         if tok is None:
             return None
         if not isinstance(tok, OpenToken):
@@ -102,7 +102,7 @@ class Input:
         # Now the cursor move after {=.
         # However we need to process this token starting from {.
         
-        ahead_str = self.lexer.ahead()
+        ahead_str = self.lexer.unconsumed_text()
         if len(ahead_str) <= 2:
             return None
 
