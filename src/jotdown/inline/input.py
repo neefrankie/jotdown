@@ -38,6 +38,7 @@ class Input:
     def feed_line(self, line: Range, last: bool):
         assert not self.complete
         self.complete = last
+        # If previous line is completed.
         if not self.lexer.unconsumed_text():
             if self.ahead:
                 # If there are lines in queue,
