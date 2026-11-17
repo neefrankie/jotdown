@@ -1,4 +1,5 @@
 import string
+from typing import Final
 
 __all__ = [
     'is_ascii_punctuation',
@@ -8,7 +9,7 @@ __all__ = [
 ]
 
 _ASCII_WHITESPACE = set(' \t\n\r\x0c')
-_COLON_UNDERSCORE_DASH = set(':_-')
+NAME_CHARS: Final = frozenset(string.ascii_letters + string.digits + ':_-')
 
 def is_ascii_punctuation(c: str) -> bool:
     """
@@ -38,7 +39,7 @@ def is_name_char(c: str) -> bool:
     Implement Rust version's attr::is_name()
     Matches: ASCII alpha numeric and _ - :
     """
-    return c.isalnum() or c in _COLON_UNDERSCORE_DASH
+    return c in NAME_CHARS
 
 def unescape_djot(s: str) -> str:
     """
