@@ -10,9 +10,13 @@ from .event import (
     ListType,
     Alignment,
     Node,
-    EnterEvent,
     ContainerNode,
     Document,
+    EnterEvent,
+    ExitEvent,
+    InlineEvent,
+    AtomEvent,
+    StaleEvent,
 )
 
 @dataclass(slots=True)
@@ -74,6 +78,14 @@ class TreeParser:
 
         return self.events
 
+    def inline(self, span: Range):
+        self.events.append(
+            Event(
+                kind=InlineEvent(),
+                span=span,
+            )
+        )
+
 
     def enter(self, node: Node, span: Range) -> int:
         i = len(self.events)
@@ -85,3 +97,18 @@ class TreeParser:
             )
         )
         return i
+
+    def exit(self, span: Range) -> int:
+        i = len(self.events)
+        entered_event = self.events[self.open.pop()]
+        if not isinstance(entered_event.kind, EnterEvent):
+            raise RuntimeError("Unexpected exit")
+
+        self.events.append(
+            Event(
+                kind=ExitEvent(entered_event.kind.node),
+                span=span,
+            )
+        )
+        return i
+        
