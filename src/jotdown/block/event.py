@@ -5,6 +5,12 @@ from jotdown.common import (
     Range,
 )
 
+from .list import (
+    OrderedListNumbering,
+    OrderedListStyle,
+    BulletStyle,
+)
+
 class Alignment(Enum):
     UNSPECFIED = auto()
     LEFT = auto()
@@ -68,27 +74,9 @@ class Blockquote:
 class Div:
     class_name: str
 
-
-class BulletStyle(Enum):
-    PLUS = auto()
-    DASH = auto()
-    ASTERISK = auto()
-
 @dataclass(frozen=True, slots=True)
 class UnorderedList:
     style: BulletStyle
-
-class OrderedListStyle(Enum):
-    PERIOD = auto()
-    PAREN = auto()
-    DOUBLE_PAREN = auto()
-
-class OrderedListNumbering(Enum):
-    DECIMAL = auto()
-    ALPHA_LOWER = auto()
-    ALPHA_UPPER = auto()
-    ROMAN_LOWER = auto()
-    ROMAN_UPPER = auto()
 
 @dataclass(frozen=True, slots=True)
 class OrderedList:
