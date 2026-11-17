@@ -7,7 +7,7 @@ class Range:
     end: int
 
     def __len__(self) -> int:
-        return self.end - self.start
+        return self.end - self.start + 1
 
     def is_empty(self) -> bool:
         return self.start >= self.end
@@ -15,5 +15,3 @@ class Range:
     def contains(self, pos: int) -> bool:
         return self.start <= pos < self.end
 
-    def to_slice(self) -> slice:
-        return slice(self.start, self.end)
