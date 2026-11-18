@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 import string
-from typing import Final, NamedTuple, Tuple
+from typing import Final, List, NamedTuple, Tuple
 
 from jotdown.common import (
     Range,
@@ -109,6 +109,26 @@ class MeteredBlock(NamedTuple):
 class IdentifiedBlock(NamedTuple):
     token: TriggerToken
     span: Range
+
+def meter_block(reader: Reader, lines: List[Range]) -> MeteredBlock | None:
+    opend_block = identify_block(reader, lines[0])
+    if opend_block is None:
+        return None
+
+    token, span = opend_block
+
+    i = 1
+    while i < len(lines):
+        if can_continue(token, reader, lines[i]):
+            i += 1
+        else:
+            break
+
+    return MeteredBlock(
+        token=token,
+        span=span,
+        line_count=i
+    )
 
 def can_continue(token: TriggerToken, reader: Reader, line: Range) -> bool:
     match token:
