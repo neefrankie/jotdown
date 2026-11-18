@@ -69,7 +69,7 @@ class Reader:
                 end=self.length,
             )
 
-    def left_indent(self, span: Range) -> int:
+    def calc_indent(self, span: Range) -> int:
         newpos = span.start
 
         while newpos < span.end:
@@ -80,16 +80,25 @@ class Reader:
 
         return newpos - span.start
 
-    def rstrip(self, span: Range) -> int:
-        newpos = span.end - 1
-
-        while newpos >= span.start:
-            ch = self.src[newpos]
+    def trim_end_whitespace(self, span: Range) -> int:
+        start = span.end - 1
+        end = start
+    
+        while end >= span.start:
+            ch = self.src[end]
             if ch not in ASCII_WHITESPACE:
                 break
-            newpos -= 1
+            end -= 1
 
-        return newpos
+        return start - end
+
+    def left_strip(self, span: Range) -> int:
+        text = self.src[span.start:span.end]
+        return len(text) - len(text.lstrip())
+
+    def is_empty(self, span: Range) -> bool:
+        text = self.src[span.start:span.end]
+        return len(text.strip()) == 0
 
     def char_at(self, pos: int) -> str | None:
         if pos < self.length:
