@@ -1,5 +1,5 @@
 import string
-from typing import Final, Iterator, NamedTuple
+from typing import Final, Iterator, List, NamedTuple
 
 from jotdown.common import (
     Range,
@@ -10,16 +10,6 @@ from jotdown.attr import State
 NAME_CHARS: Final = frozenset(string.ascii_letters + string.digits + ':_-')
 ASCII_WHITESPACE = ' \t\r\n\x0c'
 
-
-class LineSpan(NamedTuple):
-    start: int = 0 # current line start position in global text.
-    end: int = 0 # exclusive
-
-    def __len__(self) -> int:
-        return self.end - self.start
-
-    def __repr__(self) -> str:
-        return f'Line(start={self.start}, end={self.end})'
 
 def is_valid_name(s: str) -> bool:
     for ch in s:
@@ -48,14 +38,14 @@ class Reader:
         
         self.length = len(src)
 
-    def iter_lines(self) -> Iterator[LineSpan]:
+    def iter_lines(self) -> Iterator[Range]:
         if self.length == 0:
             return
 
         start = 0
         end = self.src.find('\n', start)
         while end > -1:
-            yield LineSpan(
+            yield Range(
                 start=start,
                 end=end + 1,
             )
@@ -64,7 +54,7 @@ class Reader:
 
         # In case the last line is not ended with newline
         if start < self.length:
-            yield LineSpan(
+            yield Range(
                 start=start,
                 end=self.length,
             )
@@ -99,6 +89,18 @@ class Reader:
     def is_empty(self, span: Range) -> bool:
         text = self.src[span.start:span.end]
         return len(text.strip()) == 0
+
+    def drop_trailing_empty_lines(self, lines: List[Range]) -> List[Range]:
+
+        end = len(lines)
+        while end > 0:
+            if self.is_empty(lines[end-1]):
+                end -= 1
+            else:
+                break
+
+        return lines[:end]
+        
 
     def char_at(self, pos: int) -> str | None:
         if pos < self.length:

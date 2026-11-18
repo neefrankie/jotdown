@@ -1,4 +1,6 @@
+import copy
 from dataclasses import dataclass
+import itertools
 from typing import Iterator, List
 
 from jotdown.common import (
@@ -19,6 +21,13 @@ from .event import (
     StaleEvent,
 )
 
+from .block import (
+    meter_block,
+    TableToken,
+    FencedToken,
+)
+from .reader import Reader
+
 @dataclass(slots=True)
 class OpenList:
     ty_start: ListType
@@ -29,7 +38,7 @@ class OpenList:
 
 class TreeParser:
     def __init__(self, src: str):
-        self.src = src
+        self.reader = Reader(src)
         self.prev_blankline: bool = False
         self.prev_loose: bool = False
         self.attr_start: int | None = None
@@ -39,38 +48,15 @@ class TreeParser:
         self.open : List[int] = []
         self.events: List[Event] = []
 
-    def iter_lines(self) -> Iterator[Range]:
-        if not self.src:
-            return
-        
-        length = len(self.src)
-
-        start = 0
-        end = self.src.find('\n', start)
-        while end > -1:
-            yield Range(
-                start=start,
-                end=end,
-            )
-            start = end+1
-            end = self.src.find('\n', start)
-
-        # In case the last line is not ended with newline
-        if start < length:
-            yield Range(
-                start=start,
-                end=length-1,
-            )
-
     def parse(self) -> List[Event]:
         self.enter(ContainerNode(Document()), Range(0, 0))
 
-        lines = list(self.iter_lines())
+        lines = list(self.reader.iter_lines())
 
         line_pos = 0
 
         while line_pos < len(lines):
-            line_count = 0
+            line_count = self.parse_block(lines[line_pos:], True)
             if line_count == 0:
                 break
 
@@ -111,4 +97,26 @@ class TreeParser:
             )
         )
         return i
+
+    def parse_block(self, lines: List[Range], top_level: bool) -> int:
+        block = meter_block(self.reader, lines=lines)
+        if block is None:
+            return 0
+
+        line_count = block.line_count
+        lines = lines[:line_count]
+        span_start = copy.copy(block.span)
+        
+        match block.token:
+            case TableToken(caption=False, blankline=True):
+                lines = self.reader.drop_trailing_empty_lines(lines)
+
+        end_line = lines[-1]
+
+        match block.token:
+            case FencedToken(has_closing_fence=True):
+                span_end = end_line
+            case _:
+                span_end = Range(end_line.end, end_line.end)
+
         
