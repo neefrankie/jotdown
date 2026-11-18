@@ -12,13 +12,11 @@ from .list import (
     BulletStyle,
 )
 from .event import (
-    AtomKind,
     ListType,
     TaskList,
     UnorderedList,
     DescriptionList,
     OrderedList,
-    BulletStyle,
 )
 
 from .reader import (
@@ -27,12 +25,6 @@ from .reader import (
     is_vaild_lang,
 )
 
-@dataclass(frozen=True, slots=True)
-class Atom:
-    kind: AtomKind
-
-    def continues(self) -> bool:
-        return False
 
 @dataclass(frozen=True, slots=True)
 class BlankToken:
@@ -54,6 +46,7 @@ class ParaToken:
 @dataclass(frozen=True, slots=True)
 class HeadingToken:
     level: int
+
 class FenceKind(Enum):
     DIV = auto()
     CODE_BLOCK = auto()
