@@ -31,80 +31,214 @@ from .reader import (
 class Atom:
     kind: AtomKind
 
+    def continues(self) -> bool:
+        return False
+
 @dataclass(frozen=True, slots=True)
-class Paragraph:
+class BlankToken:
     pass
 
 @dataclass(frozen=True, slots=True)
-class Heading:
-    level: int
+class AttrToken:
+    pass
 
+@dataclass(frozen=True, slots=True)
+class ThematicToken:
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class ParaToken:
+    pass
+
+@dataclass(frozen=True, slots=True)
+class HeadingToken:
+    level: int
 class FenceKind(Enum):
     DIV = auto()
     CODE_BLOCK = auto()
 
-@dataclass(frozen=True, slots=True)
-class Fenced:
+class NestedRaw(NamedTuple):
+    border_char: str
+    fence_length: int
+
+@dataclass(slots=True)
+class FencedToken:
     indent: int
     fence_length: int
     kind: FenceKind
     border_char: str
-    spec: str
+    spec: str # lang part
     has_closing_fence: bool = False
-    nested_raw: Tuple[int, int] | None = None
+    nested_raw: NestedRaw | None = None # a flag whehter code block is nested withint div.
 
-@dataclass(frozen=True, slots=True)
-class Definition:
+@dataclass(slots=True)
+class DefinitionToken:
     indent: int
     footnote: bool
     label: str
     last_blankline: bool
 
 @dataclass(frozen=True, slots=True)
-class Blockquote:
+class BlockquoteToken:
     pass
 
-@dataclass(frozen=True, slots=True)
-class ListItem:
+@dataclass(slots=True)
+class ListItemToken:
     indent: int
     typ: ListType
     last_blankline: bool
 
-@dataclass(frozen=True, slots=True)
-class Table:
+@dataclass(slots=True)
+class TableToken:
     caption: bool
     blankline: bool
 
-Kind = (
-    Atom |
-    Paragraph |
-    Heading |
-    Fenced |
-    Definition |
-    Blockquote |
-    ListItem |
-    Table
+TriggerToken = (
+    BlankToken |
+    AttrToken |
+    ThematicToken |
+    ParaToken |
+    HeadingToken |
+    FencedToken |
+    DefinitionToken |
+    BlockquoteToken |
+    ListItemToken |
+    TableToken
 )
 
 
-@dataclass(frozen=True, slots=True)
-class MeteredBlock:
-    kind: Kind
+class MeteredBlock(NamedTuple):
+    token: TriggerToken
     span: Range
     line_count: int
 
 class IdentifiedBlock(NamedTuple):
-    kind: Kind
+    token: TriggerToken
     span: Range
 
+def can_continue(token: TriggerToken, reader: Reader, line: Range) -> bool:
+    match token:
+        case BlankToken() | AttrToken() | ThematicToken() | FencedToken(has_closing_fence=True):
+            return False
+        case BlockquoteToken():
+            new_block = identify_block(reader, line)
+            if new_block is None:
+                return False
+    
+            if isinstance(new_block.token, (BlockquoteToken, ParaToken)):
+                return True
+    
+            return False
+        case HeadingToken(level=level):
+            new_block = identify_block(reader, line)
+            if new_block is None:
+                return False
+    
+            if isinstance(new_block.token, ParaToken):
+                return True
+    
+            if isinstance(new_block.token, HeadingToken) and new_block.token.level == level:
+                return True
+    
+            return False
 
-ASCII_SPACE = ' \t\r\n\x0c'
+        case ParaToken() | TableToken(caption=True):
+            return not reader.is_empty(line)
+
+        case ListItemToken(indent=indent, last_blankline=last_blankline):
+            whitespace = reader.left_strip(line)
+            next_block = identify_block(reader, line)
+            if next_block is None:
+                return False
+
+            para = (not last_blankline) and isinstance(next_block.token, ParaToken)
+            token.last_blankline = isinstance(next_block.token, BlankToken)
+            return token.last_blankline or whitespace > indent or para
+
+        case DefinitionToken(indent=indent, footnote=True, last_blankline=last_blankline):
+            next_block = identify_block(reader, line)
+            if next_block is None:
+                return False
+
+            whitespace = reader.left_strip(line)
+            cont_para = (not last_blankline) and isinstance(next_block.token, ParaToken)
+            token.last_blankline = isinstance(next_block.token, BlankToken)
+
+            return whitespace > indent or token.last_blankline or cont_para
+
+        case DefinitionToken():
+            blankline = reader.is_empty(line)
+
+            return reader.char_at(line.start) == ' ' and not blankline
+
+        case FencedToken(
+            fence_length=fence_length,
+            kind=kind,
+            nested_raw=nested_raw,
+        ):
+            new_block = identify_block(reader, line)
+            if new_block is None:
+                return True
+
+            new_token = new_block.token
+
+            if not isinstance(new_token, FencedToken):
+                return True
+
+            # If a div has code block nested.
+            if nested_raw is not None:
+                if (
+                    # and we find the nested code block's closing delimiter
+                    new_token.kind == FenceKind.CODE_BLOCK 
+                    and 
+                    new_token.fence_length >= nested_raw.fence_length 
+                    and 
+                    len(new_token.spec) == 0
+                    # and the closing delimiter should be longer than opening delimiter, 
+                    # and does not have attributes followed
+                ):
+                    token.nested_raw = None
+            elif new_token.kind == kind:
+                # Might be closing delimiter
+                token.has_closing_fence =  (
+                    (new_token.fence_length >= fence_length) # closing delimiter should be longer
+                    and
+                    (len(new_token.spec) == 0) # closing delimiter should not have attributes followed
+                )
+            elif kind == FenceKind.DIV: # if outer container is div.
+                if new_token.kind == FenceKind.CODE_BLOCK:
+                    token.nested_raw = NestedRaw(
+                        border_char=new_token.border_char,
+                        fence_length=new_token.fence_length
+                    )
+
+            return True
+
+        case TableToken(caption=caption, blankline=blankline):
+            text = reader.text(line.start, line.end)
+            text = text.strip()
+            if len(text) == 0:
+                token.blankline = True
+                return True
+            elif text.startswith('^ '):
+                token.caption = True
+                return True
+            else:
+                return (
+                    not token.blankline
+                    and (text.startswith('|')
+                         and text.endswith('|')
+                         and not text.endswith('\\|'))
+                )
+
+
 
 def identify_block(reader: Reader, span: Range) -> IdentifiedBlock:
-    left_indent = reader.left_indent(span)
+    indent = reader.calc_indent(span)
 
     indented_span = Range(
-        span.start+left_indent,
+        span.start+indent,
         span.end
     )
 
@@ -112,29 +246,31 @@ def identify_block(reader: Reader, span: Range) -> IdentifiedBlock:
         # TODO: figure out why here is indent length
         # rather than span.end or span.start+lindent
         return IdentifiedBlock(
-            Atom(AtomKind.BLANKLINE),
+            BlankToken(),
             Range(
-                span.start + left_indent,
-                span.start + left_indent
+                span.start + indent,
+                span.start + indent
             )
         )
 
+    
+    end_whitespace = reader.trim_end_whitespace(indented_span)
     # First non-space char position from backward.
-    end_char_pos = reader.rstrip(indented_span)
+    end_char_pos = indented_span.end - end_whitespace - 1
 
     first_char = reader.char_at(indented_span.start)
 
     match first_char:
         case '\n':
             return IdentifiedBlock(
-                Atom(AtomKind.BLANKLINE),
-                Range(span.start+left_indent, span.start+left_indent+1)
+                BlankToken(),
+                Range(span.start+indent, span.start+indent+1)
             )
         case '#':
             level = reader.read_heading_level(indented_span)
             if level is not None:
                 return IdentifiedBlock(
-                    Heading(level),
+                    HeadingToken(level),
                     Range(
                         indented_span.start,
                         indented_span.start+level
@@ -144,7 +280,7 @@ def identify_block(reader: Reader, span: Range) -> IdentifiedBlock:
         case '>':
             if reader.is_none_or_whitespace(indented_span.start+1):
                 return IdentifiedBlock(
-                    Blockquote(),
+                    BlockquoteToken(),
                     Range(
                         indented_span.start,
                         indented_span.start+1
@@ -155,7 +291,7 @@ def identify_block(reader: Reader, span: Range) -> IdentifiedBlock:
             attr_end = reader.find_attr_end(indented_span)
             if attr_end == end_char_pos:
                 return IdentifiedBlock(
-                    Atom(AtomKind.ATTRIBUTES),
+                    AttrToken(),
                     Range(
                         indented_span.start,
                         indented_span.start+1
@@ -165,7 +301,7 @@ def identify_block(reader: Reader, span: Range) -> IdentifiedBlock:
         case '|':
             if reader.is_table_row(Range(indented_span.start, end_char_pos+1)):
                 return IdentifiedBlock(
-                    Table(False, False),
+                    TableToken(False, False),
                     Range(
                         indented_span.start,
                         indented_span.start
@@ -177,8 +313,8 @@ def identify_block(reader: Reader, span: Range) -> IdentifiedBlock:
             if label is not None:
                 is_footnote = label.startswith('^')
                 return IdentifiedBlock(
-                    Definition(
-                        indent=left_indent,
+                    DefinitionToken(
+                        indent=indent,
                         footnote=is_footnote,
                         label=label[1:] if is_footnote else label,
                         last_blankline=False,
@@ -191,7 +327,7 @@ def identify_block(reader: Reader, span: Range) -> IdentifiedBlock:
         case '-' | '*':
             if reader.is_thematic_break(indented_span):
                 return IdentifiedBlock(
-                    Atom(AtomKind.THEMATIC_BREAK),
+                    ThematicToken(),
                     Range(
                         indented_span.start,
                         end_char_pos+1,
@@ -201,8 +337,8 @@ def identify_block(reader: Reader, span: Range) -> IdentifiedBlock:
         case '-' | '*' | '+':
             if reader.is_task(indented_span):
                 return IdentifiedBlock(
-                    ListItem(
-                        indent=left_indent,
+                    ListItemToken(
+                        indent=indent,
                         typ=TaskList(BulletStyle(first_char)),
                         last_blankline=False,
                     ),
@@ -213,8 +349,8 @@ def identify_block(reader: Reader, span: Range) -> IdentifiedBlock:
                 )
             else:
                 return IdentifiedBlock(
-                    ListItem(
-                        indent=left_indent,
+                    ListItemToken(
+                        indent=indent,
                         typ=UnorderedList(BulletStyle(first_char)),
                         last_blankline=False,
                     ),
@@ -226,8 +362,8 @@ def identify_block(reader: Reader, span: Range) -> IdentifiedBlock:
         case ':':
             if reader.is_none_or_whitespace(indented_span.start+1):
                 return IdentifiedBlock(
-                    ListItem(
-                        indent=left_indent,
+                    ListItemToken(
+                        indent=indent,
                         typ=DescriptionList(),
                         last_blankline=False,
                     ),
@@ -245,8 +381,8 @@ def identify_block(reader: Reader, span: Range) -> IdentifiedBlock:
             kind = FenceKind.DIV if first_char == ':' else FenceKind.CODE_BLOCK
             if valid_spec and fence_length >= 3:
                 return IdentifiedBlock(
-                    Fenced(
-                        indent=left_indent,
+                    FencedToken(
+                        indent=indent,
                         fence_length=fence_length,
                         kind=kind,
                         border_char=first_char,
@@ -263,8 +399,8 @@ def identify_block(reader: Reader, span: Range) -> IdentifiedBlock:
             if result is not None:
                 ordered_list, length = result
                 return IdentifiedBlock(
-                    ListItem(
-                        indent=left_indent,
+                    ListItemToken(
+                        indent=indent,
                         typ=ordered_list,
                         last_blankline=False,
                     ),
@@ -275,7 +411,7 @@ def identify_block(reader: Reader, span: Range) -> IdentifiedBlock:
                 )
 
     return IdentifiedBlock(
-        Paragraph(),
+        ParaToken(),
         Range(
             indented_span.start,
             indented_span.start,
