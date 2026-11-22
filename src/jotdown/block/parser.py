@@ -1,37 +1,39 @@
 import copy
 from dataclasses import dataclass
-import itertools
-from typing import Iterator, List
+from typing import List
 
 from jotdown.common import (
     Range,
 )
 
-from .event import (
-    Event,
-    ListType,
+from .event2 import (
     Alignment,
-    Node,
-    ContainerNode,
-    Document,
-    EnterEvent,
-    ExitEvent,
-    InlineEvent,
-    AtomEvent,
-    StaleEvent,
+    Event,
+    Action,
+    ListPayload,
+    LeafKind,
+    ContainerKind,
+    AtomKind,
 )
 
-from .block import (
+from .rule import (
     meter_block,
-    TableToken,
-    FencedToken,
+    BaseRule,
+    MeteredBlock,
+    ListItemRule,
+    AtomRule,
+    ParaRule,
 )
 from .reader import Reader
+from .list import (
+    can_list_continues,
+    ListType,
+)
 
 @dataclass(slots=True)
 class OpenList:
-    ty_start: ListType
-    ty_prev: ListType
+    start_list: ListType
+    prev_list: ListType
     depth: int
     event: int
 
@@ -39,17 +41,23 @@ class OpenList:
 class TreeParser:
     def __init__(self, src: str):
         self.reader = Reader(src)
+        # The previous block element was a blank line.
         self.prev_blankline: bool = False
         self.prev_loose: bool = False
         self.attr_start: int | None = None
+        # Stack of currently open lists.
         self.open_lists: List[OpenList]
         self.open_sections: List[int] = []
+        # Alignments for each column in for the current table.
         self.alignment: List[Alignment] = []
-        self.open : List[int] = []
+        # Current container depth.
+        self.open: List[int] = []
+        # Buffer queue for next events. Events are buffered until no modifications due to future
+        #  characters are needed.
         self.events: List[Event] = []
 
     def parse(self) -> List[Event]:
-        self.enter(ContainerNode(Document()), Range(0, 0))
+        self.enter(ContainerKind.DOCUMENT, Range(0, 0))
 
         lines = list(self.reader.iter_lines())
 
@@ -64,59 +72,158 @@ class TreeParser:
 
         return self.events
 
-    def inline(self, span: Range):
-        self.events.append(
-            Event(
-                kind=InlineEvent(),
-                span=span,
-            )
-        )
 
-
-    def enter(self, node: Node, span: Range) -> int:
+    def enter(self, kind: ContainerKind | LeafKind, span: Range) -> int:
         i = len(self.events)
         self.open.append(i)
         self.events.append(
-            Event(
-                kind=EnterEvent(node),
+            Event.enter(
                 span=span,
+                kind=kind,
             )
         )
         return i
 
-    def exit(self, span: Range) -> int:
+    def on_exit(self, span: Range):
         i = len(self.events)
-        entered_event = self.events[self.open.pop()]
-        if not isinstance(entered_event.kind, EnterEvent):
-            raise RuntimeError("Unexpected exit")
+        event = self.events[self.open.pop()]
+        if event.kind != Action.ENTER:
+            raise Exception("Invalid event")
 
         self.events.append(
             Event(
-                kind=ExitEvent(entered_event.kind.node),
                 span=span,
+                kind=event.kind,
+                action=Action.EXIT,
+                payload=event.payload
             )
         )
+
         return i
 
     def parse_block(self, lines: List[Range], top_level: bool) -> int:
+        """
+        Args:
+            lines (List[Range]): from first line of current block to EOF.
+        """
         block = meter_block(self.reader, lines=lines)
         if block is None:
             return 0
 
-        line_count = block.line_count
-        lines = lines[:line_count]
-        span_start = copy.copy(block.span)
+        # lines for current block
+        lines, line_count = block.locate_lines(self.reader, lines)
         
-        match block.token:
-            case TableToken(caption=False, blankline=True):
-                lines = self.reader.drop_trailing_empty_lines(lines)
+        start_span = copy.copy(block.span) # block start token
+        end_line = block.find_end_span(lines)
 
-        end_line = lines[-1]
+        block.adjust_line_start(self.reader, lines)
 
-        match block.token:
-            case FencedToken(has_closing_fence=True):
-                span_end = end_line
+        lines = block.skip_fence_border(lines)
+
+        # close list if a non list item or a list item of new type appeared
+        if self.open_lists:
+            last_list = self.open_lists[-1]
+            assert last_list.depth <= len(self.open)
+            # If opened container is the same as list depth.
+            if len(self.open) == last_list.depth:
+                can_continue = self.continue_list(last_list, block.rule)
+                if not can_continue:
+                    last_list = self.open_lists.pop()
+                    self.close_list(last_list, start_span.start)
+
+        self.set_loose_list(block)
+
+        match block.rule:
+            case AtomRule(kind=kind):
+                assert isinstance(block.rule, AtomRule)
+                self.events.append(
+                    Event.atom(
+                        copy.copy(start_span),
+                        kind,
+                    )
+                )
+            case ParaRule():
+                pass
+
+        return line_count
+                
+
+    def set_loose_list(self, block: MeteredBlock):
+        """
+        set list to loose if blankline discovered
+
+        - Item 1
+
+        - Item 2
+        """
+        match block.rule:
+            case AtomRule(kind=AtomKind.BLANKLINE):
+                self.prev_blankline = True
+                return
+
             case _:
-                span_end = Range(end_line.end, end_line.end)
+                self.prev_loose = False
+
+                if self.prev_blankline:
+                    last_list = self.open_lists.pop() if self.open_lists else None
+                    if last_list is not None:
+                        if (
+                            last_list.depth >= len(self.open) or 
+                            not isinstance(block.rule, ListItemRule)
+                        ):
+                            event = self.events[last_list.event]
+                            if (
+                                event.is_enter_container()
+                                and isinstance(event.payload, ListPayload)
+                            ):
+                                if event.payload.tight:
+                                    self.prev_loose = True
+                                    event.payload.tight = False
+
+                self.prev_blankline = False
+                        
+
+
+
+    def continue_list(self, last_list: OpenList, rule: BaseRule) -> bool:
+        match rule:
+            case ListItemRule(detail=new_list):
+                alternatives = can_list_continues(
+                    last_list.prev_list,
+                    new_list
+                )
+                if not alternatives:
+                    return False
+
+                prev_list_res, new_list_res = alternatives
+
+                if last_list.start_list == last_list.prev_list:
+                    last_list.start_list = prev_list_res
+
+                last_list.prev_list = new_list_res
+
+                return True
+            
+            case _:
+                return False
+
+    def close_list(self, open_list: OpenList, pos: int):
+        event = self.events[open_list.event]
+        match event.payload:
+            case ListPayload():
+                if self.prev_loose:
+                    event.payload.tight = True
+
+                event.payload.typ = open_list.start_list
+            case _:
+                raise Exception("Invalid payload")
+
+        self.on_exit(Range(pos, pos))
+
+                
+
+        
+
+
 
         

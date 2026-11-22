@@ -1,5 +1,5 @@
 import string
-from typing import Final, Iterator, List, NamedTuple
+from typing import Final, Iterator, List
 
 from jotdown.common import (
     Range,
@@ -9,6 +9,7 @@ from jotdown.attr import State
 
 NAME_CHARS: Final = frozenset(string.ascii_letters + string.digits + ':_-')
 ASCII_WHITESPACE = ' \t\r\n\x0c'
+SPACE_TAB = ' \t'
 
 
 def is_valid_name(s: str) -> bool:
@@ -59,16 +60,16 @@ class Reader:
                 end=self.length,
             )
 
-    def calc_indent(self, span: Range) -> int:
-        newpos = span.start
+    def skip_space(self, start: int, end: int) -> int:
+        newpos = start
 
-        while newpos < span.end:
+        while newpos < end:
             ch = self.src[newpos]
             if ch == '\n' or ch not in ASCII_WHITESPACE:
                 break
             newpos += 1
 
-        return newpos - span.start
+        return newpos - start
 
     def trim_end_whitespace(self, span: Range) -> int:
         start = span.end - 1
@@ -90,7 +91,7 @@ class Reader:
         text = self.src[span.start:span.end]
         return len(text.strip()) == 0
 
-    def drop_trailing_empty_lines(self, lines: List[Range]) -> List[Range]:
+    def drop_trailing_empty_lines(self, lines: List[Range]) -> int:
 
         end = len(lines)
         while end > 0:
@@ -99,7 +100,19 @@ class Reader:
             else:
                 break
 
-        return lines[:end]
+        return len(lines) - end
+
+    def is_none_or_whitespace(self, pos: int) -> bool:
+        ch = self.char_at(pos)
+        if ch is None:
+            return True
+        return ch in ASCII_WHITESPACE
+
+    def is_space_or_tab(self, pos: int) -> bool:
+        if pos >= self.length:
+            return False
+
+        return self.src[pos] in SPACE_TAB
         
 
     def char_at(self, pos: int) -> str | None:
@@ -111,33 +124,20 @@ class Reader:
     def text(self, start: int, end: int) -> str:
         return self.src[start:end]
 
-    def read_seq(self, span: Range, ch: str) -> int:
+    def count_seq(self, ch: str, start: int, end: int) -> int:
         """Count consecutive chars"""        
-        if self.char_at(span.start) != ch:
+        if self.char_at(start) != ch:
             return 0
         
-        i = span.start
+        i = start
         
-        while i <= span.end:
+        while i <= end:
             if self.char_at(i) != ch:
                 break
             i += 1
         
-        return i - span.start
+        return i - start
 
-    def read_heading_level(self, span: Range) -> int | None:
-        level = self.read_seq(span, '#')
-        end_char = self.char_at(span.start + level)
-        if end_char is None or end_char in ASCII_WHITESPACE:
-            return level
-
-        return None
-
-    def is_none_or_whitespace(self, pos: int) -> bool:
-        ch = self.char_at(pos)
-        if ch is None:
-            return True
-        return ch in ASCII_WHITESPACE
 
     def find_attr_end(self, span: Range) -> int:
         state = State.START

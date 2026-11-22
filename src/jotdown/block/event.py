@@ -6,9 +6,7 @@ from jotdown.common import (
 )
 
 from .list import (
-    OrderedListNumbering,
-    OrderedListStyle,
-    BulletStyle,
+    ListType,
 )
 
 class Alignment(Enum):
@@ -73,31 +71,6 @@ class Blockquote:
 @dataclass(frozen=True, slots=True)
 class Div:
     class_name: str
-
-@dataclass(frozen=True, slots=True)
-class UnorderedList:
-    style: BulletStyle
-
-@dataclass(frozen=True, slots=True)
-class OrderedList:
-    numbering: OrderedListNumbering
-    value: int
-    style: OrderedListStyle
-
-@dataclass(frozen=True, slots=True)
-class TaskList:
-    style: BulletStyle
-
-@dataclass(frozen=True, slots=True)
-class DescriptionList:
-    pass
-
-ListType = (
-    UnorderedList |
-    OrderedList |
-    TaskList |
-    DescriptionList
-)
 
 @dataclass(frozen=True, slots=True)
 class ListContainer:
